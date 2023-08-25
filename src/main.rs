@@ -32,7 +32,7 @@ struct Cli {
 enum Commands {
     /// Initialize
     Init {
-        repo: Option<String>, // url?
+        repo_url: Option<String>, // url?
     },
 
     /// Print config dir.
@@ -89,12 +89,18 @@ fn main() -> Result<(), String> {
     trace!("Config dir: {:?}", config_dir);
 
     match cli.command {
-        Commands::Init { repo } => {
+        Commands::Init { repo_url } => {
+            let is_first_device: bool;
             // get repo or initialize it
-            let repo = match repo {
-                Some(repo) => {
-                    trace!("repo: {}", repo);
-                    unimplemented!("Need to use git2"); // TODO
+            let repo_url = match repo_url {
+                Some(repo_url) => {
+                    trace!("repo: {}", repo_url);
+                    let repo = match Repository::clone(&repo_url, &config_dir) {
+                        Ok(repo) => repo,
+                        Err(e) => return Err(e.to_string()),
+                    };
+                    is_first_device = false;
+                    repo
                 }
                 None => {
                     trace!("No repo provided");
@@ -122,6 +128,7 @@ fn main() -> Result<(), String> {
                             Err(e) => return Err(e.to_string()),
                         };
                     }
+                    is_first_device = true;
                     repo
                 }
             };
@@ -142,8 +149,11 @@ fn main() -> Result<(), String> {
 
             // Add new device to devices.yml
             {
-                // let mut devices = get_devices(&config_dir)?;
-                let mut devices: Vec<Device> = vec![];
+                let mut devices: Vec<Device> = if is_first_device {
+                    vec![]
+                } else {
+                    get_devices(&config_dir)?
+                };
                 devices.push(device.clone());
                 trace!("Devices: {:?}", devices);
                 write_devices(&config_dir, devices)?;
@@ -151,7 +161,7 @@ fn main() -> Result<(), String> {
 
             // commit
             match add_and_commit(
-                &repo,
+                &repo_url,
                 &Path::new(DEVICESFILE),
                 &format!("Add new devname: {}", &device.name),
             ) {
