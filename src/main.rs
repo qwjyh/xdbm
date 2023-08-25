@@ -12,11 +12,15 @@ use inquire::{
 };
 use serde::{Deserialize, Serialize};
 use serde_yaml;
-use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
 use std::io::{self, BufWriter};
+use std::{
+    collections::{hash_map::RandomState, HashMap},
+    fmt::Debug,
+    fs::{File, OpenOptions},
+};
 use std::{env, io::BufReader, path::Path};
-use sysinfo::{System, SystemExt};
+use sysinfo::{DiskExt, System, SystemExt};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,8 +39,25 @@ enum Commands {
         repo_url: Option<String>, // url?
     },
 
+    Storage(StorageArgs),
+
     /// Print config dir.
     Path {},
+
+    /// Sync with git repo.
+    Sync {},
+}
+
+#[derive(clap::Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct StorageArgs {
+    #[command(subcommand)]
+    command: StorageCommands,
+}
+
+#[derive(Subcommand)]
+enum StorageCommands {
+    Add {},
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,12 +67,6 @@ struct Device {
     os_version: String,
     hostname: String,
 }
-
-const DEVICESFILE: &str = "devices.yml";
-
-struct Storage {}
-
-struct BackupLog {}
 
 impl Device {
     fn new(name: String) -> Device {
@@ -73,6 +88,85 @@ impl Device {
         }
     }
 }
+
+const DEVICESFILE: &str = "devices.yml";
+
+/// All storage types.
+#[derive(Serialize, Deserialize, Debug)]
+enum Storage {
+    PhysicalStorage(PhysicalDrivePartition),
+    // /// Online storage provided by others.
+    // OnlineStorage {
+    //     name: String,
+    //     provider: String,
+    //     capacity: u8,
+    // },
+}
+
+/// Partitoin of physical (on-premises) drive.
+#[derive(Serialize, Deserialize, Debug)]
+struct PhysicalDrivePartition {
+    name: String,
+    kind: String,
+    capacity: u64,
+    fs: String,
+    is_removable: bool,
+    aliases: HashMap<String, String, RandomState>,
+}
+
+impl PhysicalDrivePartition {
+    /// Try to get Physical drive info from sysinfo.
+    fn try_from_sysinfo_disk(
+        disk: sysinfo::Disk,
+        name: String,
+        device: Device,
+    ) -> Result<PhysicalDrivePartition, String> {
+        let alias = match disk.name().to_str() {
+            Some(s) => s.to_string(),
+            None => return Err("Failed to convert storage name to valid str.".to_string()),
+        };
+        let fs = disk.file_system();
+        trace!("fs: {:?}", fs);
+        let fs = match std::str::from_utf8(fs) {
+            Ok(s) => s,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(PhysicalDrivePartition {
+            name: name,
+            kind: format!("{:?}", disk.kind()),
+            capacity: disk.total_space(),
+            fs: fs.to_string(),
+            is_removable: disk.is_removable(),
+            aliases: HashMap::from([(device.name, alias)]),
+        })
+    }
+
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    fn add_alias(self, disk: sysinfo::Disk, device: Device) -> Result<PhysicalDrivePartition, String> {
+        let alias = match disk.name().to_str() {
+            Some(s) => s.to_string(),
+            None => return Err("Failed to convert storage name to valid str.".to_string()),
+        };
+        let mut aliases = self.aliases;
+        let _ = match aliases.insert(device.name, alias) {
+            Some(v) => v,
+            None => return Err("Failed to insert alias".to_string()),
+        };
+        Ok(PhysicalDrivePartition {
+            name: self.name,
+            kind: self.kind,
+            capacity: self.capacity,
+            fs: self.fs,
+            is_removable: self.is_removable,
+            aliases,
+        })
+    }
+}
+
+struct BackupLog {}
 
 fn main() -> Result<(), String> {
     let cli = Cli::parse();
@@ -120,10 +214,18 @@ fn main() -> Result<(), String> {
                         };
                         let mut buf = BufWriter::new(f);
                         match buf.write("devname".as_bytes()) {
-                            Ok(_)  => trace!("successfully created ignore file"),
+                            Ok(_) => trace!("successfully created ignore file"),
                             Err(e) => return Err(e.to_string()),
                         };
-                        match add_and_commit(&repo, Path::new(".gitignore"), "Add devname to gitignore.") {
+                        match buf.flush() {
+                            Ok(_) => (),
+                            Err(e) => return Err(e.to_string()),
+                        };
+                        match add_and_commit(
+                            &repo,
+                            Path::new(".gitignore"),
+                            "Add devname to gitignore.",
+                        ) {
                             Ok(_) => (),
                             Err(e) => return Err(e.to_string()),
                         };
@@ -154,6 +256,9 @@ fn main() -> Result<(), String> {
                 } else {
                     get_devices(&config_dir)?
                 };
+                if devices.iter().any(|x| x.name == device.name) {
+                    return Err("device name is already used.".to_string());
+                }
                 devices.push(device.clone());
                 trace!("Devices: {:?}", devices);
                 write_devices(&config_dir, devices)?;
@@ -169,8 +274,18 @@ fn main() -> Result<(), String> {
                 Err(e) => return Err(e.to_string()),
             }
         }
+        Commands::Storage(storage) => {
+            match storage.command {
+                StorageCommands::Add {} => {
+                    unimplemented!()
+                }
+            }
+        }
         Commands::Path {} => {
             println!("{}", &config_dir.display());
+        }
+        Commands::Sync {} => {
+            unimplemented!("Sync is not implemented")
         }
     }
     Ok(())
@@ -226,7 +341,11 @@ fn get_devices(config_dir: &Path) -> Result<Vec<Device>, String> {
 /// Write `devices` to yaml file in `config_dir`.
 fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<(), String> {
     trace!("write_devices");
-    let f = match OpenOptions::new().create(true).write(true).open(config_dir.join(DEVICESFILE)) {
+    let f = match OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(config_dir.join(DEVICESFILE))
+    {
         Ok(f) => f,
         Err(e) => return Err(e.to_string()),
     };
