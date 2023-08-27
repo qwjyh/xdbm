@@ -16,3 +16,5 @@ git2 = "0.17.2"
 dirs = "5.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
+byte-unit = "4.0.19"
+anyhow = "1.0"
