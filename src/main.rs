@@ -68,10 +68,13 @@ struct StorageArgs {
 
 #[derive(Subcommand)]
 enum StorageCommands {
+    /// Add new storage.
     Add {
         #[arg(value_enum)]
         storage_type: StorageType,
     },
+    /// List all storages.
+    List {},
 }
 
 mod devices;
@@ -175,25 +178,7 @@ fn main() -> Result<()> {
                 match storage_type {
                     StorageType::Physical => {
                         // Get storages
-                        let mut storages: Vec<Storage> = if let Some(storages_file) =
-                            fs::read_dir(&config_dir)?
-                                .filter(|f| {
-                                    f.as_ref().map_or_else(
-                                        |_e| false,
-                                        |f| {
-                                            let storagesfile: OsString = STORAGESFILE.into();
-                                            f.path().file_name() == Some(&storagesfile)
-                                        },
-                                    )
-                                })
-                                .next()
-                        {
-                            trace!("{} found: {:?}", STORAGESFILE, storages_file);
-                            get_storages(&config_dir)?
-                        } else {
-                            trace!("No {} found", STORAGESFILE);
-                            vec![]
-                        };
+                        let mut storages: Vec<Storage> = get_storages(&config_dir)?;
                         trace!("found storages: {:?}", storages);
 
                         // select storage
@@ -219,6 +204,14 @@ fn main() -> Result<()> {
                         println!("Added new storage.");
                         trace!("Finished adding storage");
                     }
+                }
+            }
+            StorageCommands::List {} => {
+                // Get storages
+                let storages: Vec<Storage> = get_storages(&config_dir)?;
+                trace!("found storages: {:?}", storages);
+                for storage in storages {
+                    println!("{}", storage);
                 }
             }
         },
@@ -375,17 +368,31 @@ fn select_physical_storage(
     PhysicalDrivePartition::try_from_sysinfo_disk(disk, disk_name, device)
 }
 
-/// Get `Vec<Storage>` from devices.yml([DEVICESFILE])
+/// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
+/// If [DEVICESFILE] isn't found, return empty vec.
 fn get_storages(config_dir: &Path) -> Result<Vec<Storage>> {
-    let f = File::open(config_dir.join(STORAGESFILE))?;
-    let reader = BufReader::new(f);
-    // for line in reader.lines() {
-    //     trace!("{:?}", line);
-    // }
-    // unimplemented!();
-    let yaml: Vec<Storage> =
-        serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
-    Ok(yaml)
+    if let Some(storages_file) = fs::read_dir(&config_dir)?
+        .filter(|f| {
+            f.as_ref().map_or_else(
+                |_e| false,
+                |f| {
+                    let storagesfile: OsString = STORAGESFILE.into();
+                    f.path().file_name() == Some(&storagesfile)
+                },
+            )
+        })
+        .next()
+    {
+        trace!("{} found: {:?}", STORAGESFILE, storages_file);
+        let f = File::open(config_dir.join(STORAGESFILE))?;
+        let reader = BufReader::new(f);
+        let yaml: Vec<Storage> =
+            serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
+        Ok(yaml)
+    } else {
+        trace!("No {} found", STORAGESFILE);
+        Ok(vec![])
+    }
 }
 
 /// Write `storages` to yaml file in `config_dir`.

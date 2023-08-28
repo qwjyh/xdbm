@@ -3,6 +3,7 @@
 use clap::ValueEnum;
 use physical_drive_partition::PhysicalDrivePartition;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -29,6 +30,14 @@ impl Storage {
     pub fn name(&self) -> &String {
         match self {
             Self::PhysicalStorage(s) => s.name(),
+        }
+    }
+}
+
+impl fmt::Display for Storage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PhysicalStorage(s) => s.fmt(f),
         }
     }
 }

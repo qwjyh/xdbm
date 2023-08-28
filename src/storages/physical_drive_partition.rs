@@ -3,8 +3,12 @@
 use crate::devices::Device;
 use crate::storages::StorageExt;
 use anyhow::{Context, Result};
+use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
-use std::collections::{hash_map::RandomState, HashMap};
+use std::{
+    collections::{hash_map::RandomState, HashMap},
+    fmt,
+};
 use sysinfo::DiskExt;
 
 /// Partitoin of physical (on-premises) drive.
@@ -71,5 +75,21 @@ impl PhysicalDrivePartition {
 impl StorageExt for PhysicalDrivePartition {
     fn name(&self) -> &String {
         &self.name
+    }
+}
+
+impl fmt::Display for PhysicalDrivePartition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let removable_indicator = if self.is_removable { "+" } else { "-" };
+        write!(
+            f,
+            "{name:<10} {size}  {removable:<1} {kind:<6} {fs:<5}",
+            name = self.name(),
+            size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
+            removable = removable_indicator,
+            kind = self.kind,
+            fs = self.fs,
+            // path = self. TODO: display path or contain it in struct
+        )
     }
 }
