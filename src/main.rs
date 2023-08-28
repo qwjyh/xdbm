@@ -14,10 +14,7 @@ use byte_unit::Byte;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::Verbosity;
 use git2::{Commit, IndexEntry, Oid, Repository};
-use inquire::{
-    validator::Validation,
-    Text,
-};
+use inquire::{validator::Validation, Text};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::{
@@ -31,7 +28,9 @@ use std::{
     io::{self, BufWriter},
 };
 use std::{fs, io::prelude::*};
-use sysinfo::{DiskExt, System, SystemExt};
+use sysinfo::{DiskExt, SystemExt};
+
+use devices::{Device, DEVICESFILE};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -75,36 +74,52 @@ enum StorageCommands {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct Device {
-    name: String,
-    os_name: String,
-    os_version: String,
-    hostname: String,
-}
+/// Manipulates each client device.
+mod devices {
 
-impl Device {
-    fn new(name: String) -> Device {
-        let sys = System::new();
-        Device {
-            name: name,
-            os_name: sys.name().unwrap_or_else(|| {
-                warn!("Failed to get OS name. Saving as \"unknown\".");
-                "unknown".to_string()
-            }),
-            os_version: sys.os_version().unwrap_or_else(|| {
-                warn!("Failed to get OS version. Saving as \"unknown\".");
-                "unknown".to_string()
-            }),
-            hostname: sys.host_name().unwrap_or_else(|| {
-                warn!("Failed to get hostname. Saving as \"unknown\".");
-                "unknown".to_string()
-            }),
+    use serde::{Deserialize, Serialize};
+    use sysinfo::{System, SystemExt};
+
+    /// YAML file to store known devices.
+    pub const DEVICESFILE: &str = "devices.yml";
+
+    /// Represents each devices.
+    /// Identified by name, which is accessible from `name()`.
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct Device {
+        name: String,
+        os_name: String,
+        os_version: String,
+        hostname: String,
+    }
+
+    impl Device {
+        /// Create new `Device` of name `name`. Additional data is obtained via sysinfo.
+        pub fn new(name: String) -> Device {
+            let sys = System::new();
+            Device {
+                name: name,
+                os_name: sys.name().unwrap_or_else(|| {
+                    warn!("Failed to get OS name. Saving as \"unknown\".");
+                    "unknown".to_string()
+                }),
+                os_version: sys.os_version().unwrap_or_else(|| {
+                    warn!("Failed to get OS version. Saving as \"unknown\".");
+                    "unknown".to_string()
+                }),
+                hostname: sys.host_name().unwrap_or_else(|| {
+                    warn!("Failed to get hostname. Saving as \"unknown\".");
+                    "unknown".to_string()
+                }),
+            }
+        }
+
+        /// Get name.
+        pub fn name(&self) -> String {
+            self.name.to_string()
         }
     }
 }
-
-const DEVICESFILE: &str = "devices.yml";
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
 enum StorageType {
@@ -166,7 +181,7 @@ impl PhysicalDrivePartition {
             capacity: disk.total_space(),
             fs: fs.to_string(),
             is_removable: disk.is_removable(),
-            system_names: HashMap::from([(device.name, alias)]),
+            system_names: HashMap::from([(device.name(), alias)]),
         })
     }
 
@@ -184,7 +199,7 @@ impl PhysicalDrivePartition {
             None => return Err("Failed to convert storage name to valid str.".to_string()),
         };
         let mut aliases = self.system_names;
-        let _ = match aliases.insert(device.name, alias) {
+        let _ = match aliases.insert(device.name(), alias) {
             Some(v) => v,
             None => return Err("Failed to insert alias".to_string()),
         };
@@ -258,7 +273,7 @@ fn main() -> Result<()> {
             {
                 let f = File::create(devname_path).context("Failed to create devname file")?;
                 let writer = BufWriter::new(f);
-                serde_yaml::to_writer(writer, &device.name).unwrap();
+                serde_yaml::to_writer(writer, &device.name()).unwrap();
             };
             full_status(&repo)?;
 
@@ -269,7 +284,7 @@ fn main() -> Result<()> {
                 } else {
                     get_devices(&config_dir)?
                 };
-                if devices.iter().any(|x| x.name == device.name) {
+                if devices.iter().any(|x| x.name() == device.name()) {
                     return Err(anyhow!("device name is already used."));
                 }
                 devices.push(device.clone());
@@ -282,10 +297,10 @@ fn main() -> Result<()> {
             add_and_commit(
                 &repo,
                 &Path::new(DEVICESFILE),
-                &format!("Add new devname: {}", &device.name),
+                &format!("Add new devname: {}", &device.name()),
             )?;
             full_status(&repo)?;
-        },
+        }
         Commands::Storage(storage) => match storage.command {
             StorageCommands::Add { storage_type } => {
                 trace!("Storage Add {:?}", storage_type);
@@ -294,17 +309,18 @@ fn main() -> Result<()> {
                 match storage_type {
                     StorageType::Physical => {
                         // Get storages
-                        let mut storages: Vec<Storage> = if let Some(storages_file) = fs::read_dir(&config_dir)?
-                            .filter(|f| {
-                                f.as_ref().map_or_else(
-                                    |_e| false,
-                                    |f| {
-                                        let storagesfile: OsString = STORAGESFILE.into();
-                                        f.path().file_name() == Some(&storagesfile)
-                                    },
-                                )
-                            })
-                            .next()
+                        let mut storages: Vec<Storage> = if let Some(storages_file) =
+                            fs::read_dir(&config_dir)?
+                                .filter(|f| {
+                                    f.as_ref().map_or_else(
+                                        |_e| false,
+                                        |f| {
+                                            let storagesfile: OsString = STORAGESFILE.into();
+                                            f.path().file_name() == Some(&storagesfile)
+                                        },
+                                    )
+                                })
+                                .next()
                         {
                             trace!("{} found: {:?}", STORAGESFILE, storages_file);
                             get_storages(&config_dir)?
@@ -328,7 +344,11 @@ fn main() -> Result<()> {
                         write_storages(&config_dir, storages)?;
 
                         // commit
-                        add_and_commit(&repo, &Path::new(STORAGESFILE), &format!("Add new storage(physical drive): {}", new_storage_name))?;
+                        add_and_commit(
+                            &repo,
+                            &Path::new(STORAGESFILE),
+                            &format!("Add new storage(physical drive): {}", new_storage_name),
+                        )?;
 
                         println!("Added new storage.");
                         trace!("Finished adding storage");
@@ -338,10 +358,10 @@ fn main() -> Result<()> {
         },
         Commands::Path {} => {
             println!("{}", &config_dir.display());
-        },
+        }
         Commands::Sync {} => {
             unimplemented!("Sync is not implemented")
-        },
+        }
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
@@ -367,7 +387,7 @@ fn get_device(config_dir: &Path) -> Result<Device> {
     trace!("devices: {:?}", devices);
     devices
         .into_iter()
-        .filter(|dev| dev.name == devname)
+        .filter(|dev| dev.name() == devname)
         .next()
         .context("Couldn't find Device in devices.yml")
 }
@@ -426,7 +446,10 @@ fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
 }
 
 /// Interactively select physical storage from available disks in sysinfo.
-fn select_physical_storage(device: Device, storages: &Vec<Storage>) -> Result<PhysicalDrivePartition> {
+fn select_physical_storage(
+    device: Device,
+    storages: &Vec<Storage>,
+) -> Result<PhysicalDrivePartition> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
     let mut sys_disks = sysinfo::System::new_all();
@@ -477,16 +500,16 @@ fn select_physical_storage(device: Device, storages: &Vec<Storage>) -> Result<Ph
     trace!("{}", disk_name);
     loop {
         disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.iter().all(|s| {s.name() != &disk_name}) {
+        if storages.iter().all(|s| s.name() != &disk_name) {
             break;
         }
         println!("The name {} is already used.", disk_name);
-    };
+    }
     trace!("selected name: {}", disk_name);
     PhysicalDrivePartition::try_from_sysinfo_disk(disk, disk_name, device)
 }
 
-/// Get Vec<Storage> from devices.yml([DEVICESFILE])
+/// Get `Vec<Storage>` from devices.yml([DEVICESFILE])
 fn get_storages(config_dir: &Path) -> Result<Vec<Storage>> {
     let f = File::open(config_dir.join(STORAGESFILE))?;
     let reader = BufReader::new(f);
