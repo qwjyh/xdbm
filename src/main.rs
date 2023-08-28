@@ -317,7 +317,7 @@ fn main() -> Result<()> {
                         // select storage
                         let device = get_device(&config_dir)?;
                         let storage = select_physical_storage(device, &storages)?;
-                        trace!("storage: {:?}", storage);
+                        println!("storage: {:?}", storage);
                         let new_storage_name = storage.name().clone();
 
                         // add to storages
@@ -329,10 +329,11 @@ fn main() -> Result<()> {
 
                         // commit
                         add_and_commit(&repo, &Path::new(STORAGESFILE), &format!("Add new storage(physical drive): {}", new_storage_name))?;
-                        unimplemented!()
+
+                        println!("Added new storage.");
+                        trace!("Finished adding storage");
                     }
                 }
-                unimplemented!()
             }
         },
         Commands::Path {} => {
