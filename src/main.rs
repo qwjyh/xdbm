@@ -11,26 +11,26 @@ extern crate dirs;
 
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
-use git2::{Commit, IndexEntry, Oid, Repository};
+use git2::{Commit, Oid, Repository};
 use inquire::{validator::Validation, Text};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
-use std::{
-    collections::{hash_map::RandomState, HashMap},
-    fmt::Debug,
-    fs::{File, OpenOptions},
-};
 use std::{env, io::BufReader, path::Path};
 use std::{
     ffi::OsString,
     io::{self, BufWriter},
 };
+use std::{
+    fmt::Debug,
+    fs::{File, OpenOptions},
+};
 use std::{fs, io::prelude::*};
 use sysinfo::{DiskExt, SystemExt};
 
 use devices::{Device, DEVICESFILE};
+use storages::{physical_drive_partition::*, Storage, StorageExt, StorageType, STORAGESFILE};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -75,99 +75,7 @@ enum StorageCommands {
 }
 
 mod devices;
-
-#[derive(ValueEnum, Clone, Copy, Debug)]
-enum StorageType {
-    Physical,
-    // Online,
-}
-
-/// All storage types.
-#[derive(Serialize, Deserialize, Debug)]
-enum Storage {
-    PhysicalStorage(PhysicalDrivePartition),
-    // /// Online storage provided by others.
-    // OnlineStorage {
-    //     name: String,
-    //     provider: String,
-    //     capacity: u8,
-    // },
-}
-
-impl Storage {
-    fn name(&self) -> &String {
-        match self {
-            Self::PhysicalStorage(s) => s.name(),
-        }
-    }
-}
-
-const STORAGESFILE: &str = "storages.yml";
-
-/// Partitoin of physical (on-premises) drive.
-#[derive(Serialize, Deserialize, Debug)]
-struct PhysicalDrivePartition {
-    name: String,
-    kind: String,
-    capacity: u64,
-    fs: String,
-    is_removable: bool,
-    system_names: HashMap<String, String, RandomState>,
-}
-
-impl PhysicalDrivePartition {
-    /// Try to get Physical drive info from sysinfo.
-    fn try_from_sysinfo_disk(
-        disk: &sysinfo::Disk,
-        name: String,
-        device: Device,
-    ) -> Result<PhysicalDrivePartition> {
-        let alias = disk
-            .name()
-            .to_str()
-            .context("Failed to convert storage name to valid str.")?
-            .to_string();
-        let fs = disk.file_system();
-        trace!("fs: {:?}", fs);
-        let fs = std::str::from_utf8(fs)?;
-        Ok(PhysicalDrivePartition {
-            name: name,
-            kind: format!("{:?}", disk.kind()),
-            capacity: disk.total_space(),
-            fs: fs.to_string(),
-            is_removable: disk.is_removable(),
-            system_names: HashMap::from([(device.name(), alias)]),
-        })
-    }
-
-    fn name(&self) -> &String {
-        &self.name
-    }
-
-    fn add_alias(
-        self,
-        disk: sysinfo::Disk,
-        device: Device,
-    ) -> Result<PhysicalDrivePartition, String> {
-        let alias = match disk.name().to_str() {
-            Some(s) => s.to_string(),
-            None => return Err("Failed to convert storage name to valid str.".to_string()),
-        };
-        let mut aliases = self.system_names;
-        let _ = match aliases.insert(device.name(), alias) {
-            Some(v) => v,
-            None => return Err("Failed to insert alias".to_string()),
-        };
-        Ok(PhysicalDrivePartition {
-            name: self.name,
-            kind: self.kind,
-            capacity: self.capacity,
-            fs: self.fs,
-            is_removable: self.is_removable,
-            system_names: aliases,
-        })
-    }
-}
+mod storages;
 
 struct BackupLog {}
 
