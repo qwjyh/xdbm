@@ -74,52 +74,7 @@ enum StorageCommands {
     },
 }
 
-/// Manipulates each client device.
-mod devices {
-
-    use serde::{Deserialize, Serialize};
-    use sysinfo::{System, SystemExt};
-
-    /// YAML file to store known devices.
-    pub const DEVICESFILE: &str = "devices.yml";
-
-    /// Represents each devices.
-    /// Identified by name, which is accessible from `name()`.
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct Device {
-        name: String,
-        os_name: String,
-        os_version: String,
-        hostname: String,
-    }
-
-    impl Device {
-        /// Create new `Device` of name `name`. Additional data is obtained via sysinfo.
-        pub fn new(name: String) -> Device {
-            let sys = System::new();
-            Device {
-                name: name,
-                os_name: sys.name().unwrap_or_else(|| {
-                    warn!("Failed to get OS name. Saving as \"unknown\".");
-                    "unknown".to_string()
-                }),
-                os_version: sys.os_version().unwrap_or_else(|| {
-                    warn!("Failed to get OS version. Saving as \"unknown\".");
-                    "unknown".to_string()
-                }),
-                hostname: sys.host_name().unwrap_or_else(|| {
-                    warn!("Failed to get hostname. Saving as \"unknown\".");
-                    "unknown".to_string()
-                }),
-            }
-        }
-
-        /// Get name.
-        pub fn name(&self) -> String {
-            self.name.to_string()
-        }
-    }
-}
+mod devices;
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
 enum StorageType {
@@ -299,12 +254,15 @@ fn main() -> Result<()> {
                 &Path::new(DEVICESFILE),
                 &format!("Add new devname: {}", &device.name()),
             )?;
+            println!("Device added");
             full_status(&repo)?;
         }
         Commands::Storage(storage) => match storage.command {
             StorageCommands::Add { storage_type } => {
                 trace!("Storage Add {:?}", storage_type);
-                let repo = Repository::open(&config_dir)?;
+                let repo = Repository::open(&config_dir).context(
+                    "Repository doesn't exist. Please run init to initialize the repository.",
+                )?;
                 trace!("repo state: {:?}", repo.state());
                 match storage_type {
                     StorageType::Physical => {
