@@ -242,11 +242,13 @@ fn main() -> Result<()> {
                             Path::new(".gitignore"),
                             "Add devname to gitignore.",
                         )?;
+                        full_status(&repo)?;
                     }
                     is_first_device = true;
                     repo
                 }
             };
+            full_status(&repo)?;
 
             // set device name
             let device = set_device_name()?;
@@ -258,6 +260,7 @@ fn main() -> Result<()> {
                 let writer = BufWriter::new(f);
                 serde_yaml::to_writer(writer, &device.name).unwrap();
             };
+            full_status(&repo)?;
 
             // Add new device to devices.yml
             {
@@ -273,6 +276,7 @@ fn main() -> Result<()> {
                 trace!("Devices: {:?}", devices);
                 write_devices(&config_dir, devices)?;
             }
+            full_status(&repo)?;
 
             // commit
             add_and_commit(
@@ -280,7 +284,8 @@ fn main() -> Result<()> {
                 &Path::new(DEVICESFILE),
                 &format!("Add new devname: {}", &device.name),
             )?;
-        }
+            full_status(&repo)?;
+        },
         Commands::Storage(storage) => match storage.command {
             StorageCommands::Add { storage_type } => {
                 trace!("Storage Add {:?}", storage_type);
@@ -332,11 +337,12 @@ fn main() -> Result<()> {
         },
         Commands::Path {} => {
             println!("{}", &config_dir.display());
-        }
+        },
         Commands::Sync {} => {
             unimplemented!("Sync is not implemented")
-        }
+        },
     }
+    full_status(&Repository::open(&config_dir)?)?;
     Ok(())
 }
 
@@ -516,9 +522,13 @@ fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {
 /// Add file and commit
 fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, git2::Error> {
     trace!("repo state: {:?}", repo.state());
+    full_status(repo).unwrap();
     let mut index = repo.index()?;
     index.add_path(path)?;
+    full_status(repo).unwrap();
+    index.write()?;
     let oid = index.write_tree()?;
+    let tree = repo.find_tree(oid)?;
     let config = git2::Config::open_default()?;
     let signature = git2::Signature::now(
         config.get_entry("user.name")?.value().unwrap(),
@@ -526,7 +536,6 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
     )?;
     trace!("git signature: {}", signature);
     let parent_commit = find_last_commit(&repo)?;
-    let tree = repo.find_tree(oid)?;
     let result = match parent_commit {
         Some(parent_commit) => repo.commit(
             Some("HEAD"),
@@ -539,5 +548,17 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
         None => repo.commit(Some("HEAD"), &signature, &signature, message, &tree, &[]),
     };
     trace!("repo state: {:?}", repo.state());
+    full_status(repo).unwrap();
     result
+}
+
+/// Print git repo status
+fn full_status(repo: &Repository) -> Result<()> {
+    trace!("status: ");
+    for status in repo.statuses(None)?.iter() {
+        let path = status.path().unwrap_or("");
+        let st = status.status();
+        trace!("  {}: {:?}", path, st);
+    }
+    Ok(())
 }
