@@ -1,9 +1,10 @@
 //! Manipulates storages.
 
+use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use physical_drive_partition::PhysicalDrivePartition;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{ffi, fmt, fs, path::Path, io};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -57,3 +58,37 @@ pub trait StorageExt {
 }
 
 pub mod physical_drive_partition;
+
+/// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
+/// If [DEVICESFILE] isn't found, return empty vec.
+pub fn get_storages(config_dir: &Path) -> Result<Vec<Storage>> {
+    if let Some(storages_file) = fs::read_dir(&config_dir)?
+        .filter(|f| {
+            f.as_ref().map_or_else(
+                |_e| false,
+                |f| {
+                    let storagesfile: ffi::OsString = STORAGESFILE.into();
+                    f.path().file_name() == Some(&storagesfile)
+                },
+            )
+        })
+        .next()
+    {
+        trace!("{} found: {:?}", STORAGESFILE, storages_file);
+        let f = fs::File::open(config_dir.join(STORAGESFILE))?;
+        let reader = io::BufReader::new(f);
+        let yaml: Vec<Storage> =
+            serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
+        Ok(yaml)
+    } else {
+        trace!("No {} found", STORAGESFILE);
+        Ok(vec![])
+    }
+}
+
+/// Write `storages` to yaml file in `config_dir`.
+pub fn write_storages(config_dir: &Path, storages: Vec<Storage>) -> Result<()> {
+    let f = fs::File::create(config_dir.join(STORAGESFILE))?;
+    let writer = io::BufWriter::new(f);
+    serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))
+}

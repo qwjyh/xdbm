@@ -30,8 +30,11 @@ use std::{
 use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
+use crate::storages::{
+    get_storages, physical_drive_partition::*, write_storages, Storage, StorageExt, StorageType,
+    STORAGESFILE,
+};
 use devices::{Device, DEVICESFILE};
-use storages::{physical_drive_partition::*, Storage, StorageExt, StorageType, STORAGESFILE};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -235,7 +238,10 @@ fn main() -> Result<()> {
                         let mut sysinfo = sysinfo::System::new_all();
                         sysinfo.refresh_disks();
                         let disk = select_sysinfo_disk(&sysinfo)?;
-                        let system_name = disk.name().to_str().context("Failed to convert disk name to valid string")?;
+                        let system_name = disk
+                            .name()
+                            .to_str()
+                            .context("Failed to convert disk name to valid string")?;
                         // add to storages
                         storage.add_alias(disk, &config_dir)?;
                         trace!("storage: {}", storage);
@@ -249,9 +255,15 @@ fn main() -> Result<()> {
                     add_and_commit(
                         &repo,
                         &Path::new(STORAGESFILE),
-                        &format!("Bound new storage name to physical drive ({})", commit_comment),
+                        &format!(
+                            "Bound new storage name to physical drive ({})",
+                            commit_comment
+                        ),
                     )?;
-                    println!("Bound new storage name to physical drive ({})", commit_comment);
+                    println!(
+                        "Bound new storage name to physical drive ({})",
+                        commit_comment
+                    );
                 }
             }
         }
@@ -342,108 +354,6 @@ fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
         .open(config_dir.join(DEVICESFILE))?;
     let writer = BufWriter::new(f);
     serde_yaml::to_writer(writer, &devices).map_err(|e| anyhow!(e))
-}
-
-/// Interactively select physical storage from available disks in sysinfo.
-fn select_physical_storage(
-    device: Device,
-    storages: &Vec<Storage>,
-) -> Result<PhysicalDrivePartition> {
-    trace!("select_physical_storage");
-    // get disk info fron sysinfo
-    let mut sys_disks = sysinfo::System::new_all();
-    sys_disks.refresh_disks();
-    trace!("Available disks");
-    for disk in sys_disks.disks() {
-        trace!("{:?}", disk)
-    }
-    let disk = select_sysinfo_disk(&sys_disks)?;
-    // name the disk
-    let mut disk_name = String::new();
-    trace!("{}", disk_name);
-    loop {
-        disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.iter().all(|s| s.name() != &disk_name) {
-            break;
-        }
-        println!("The name {} is already used.", disk_name);
-    }
-    trace!("selected name: {}", disk_name);
-    PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)
-}
-
-fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
-    let available_disks = sysinfo
-        .disks()
-        .iter()
-        .enumerate()
-        .map(|(i, disk)| {
-            let name = match disk.name().to_str() {
-                Some(s) => s,
-                None => "",
-            };
-            let fs: &str = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
-            let kind = format!("{:?}", disk.kind());
-            let mount_path = disk.mount_point();
-            let total_space = Byte::from_bytes(disk.total_space().into())
-                .get_appropriate_unit(true)
-                .to_string();
-            format!(
-                "{}: {} {} ({}, {}) {}",
-                i,
-                name,
-                total_space,
-                fs,
-                kind,
-                mount_path.display()
-            )
-        })
-        .collect();
-    // select from list
-    let disk = inquire::Select::new("Select drive:", available_disks).prompt()?;
-    let disk_num: usize = disk.split(':').next().unwrap().parse().unwrap();
-    trace!("disk_num: {}", disk_num);
-    let disk = sysinfo
-        .disks()
-        .iter()
-        .nth(disk_num)
-        .context("no disk matched with selected one.")?;
-    trace!("selected disk: {:?}", disk);
-    Ok(disk)
-}
-
-/// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
-/// If [DEVICESFILE] isn't found, return empty vec.
-fn get_storages(config_dir: &Path) -> Result<Vec<Storage>> {
-    if let Some(storages_file) = fs::read_dir(&config_dir)?
-        .filter(|f| {
-            f.as_ref().map_or_else(
-                |_e| false,
-                |f| {
-                    let storagesfile: OsString = STORAGESFILE.into();
-                    f.path().file_name() == Some(&storagesfile)
-                },
-            )
-        })
-        .next()
-    {
-        trace!("{} found: {:?}", STORAGESFILE, storages_file);
-        let f = File::open(config_dir.join(STORAGESFILE))?;
-        let reader = BufReader::new(f);
-        let yaml: Vec<Storage> =
-            serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
-        Ok(yaml)
-    } else {
-        trace!("No {} found", STORAGESFILE);
-        Ok(vec![])
-    }
-}
-
-/// Write `storages` to yaml file in `config_dir`.
-fn write_storages(config_dir: &Path, storages: Vec<Storage>) -> Result<()> {
-    let f = File::create(config_dir.join(STORAGESFILE))?;
-    let writer = BufWriter::new(f);
-    serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {
