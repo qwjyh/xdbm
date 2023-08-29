@@ -27,7 +27,7 @@ use std::{
     fs::{File, OpenOptions},
 };
 use std::{fs, io::prelude::*};
-use sysinfo::{DiskExt, SystemExt};
+use sysinfo::{Disk, DiskExt, SystemExt};
 
 use devices::{Device, DEVICESFILE};
 use storages::{physical_drive_partition::*, Storage, StorageExt, StorageType, STORAGESFILE};
@@ -75,6 +75,8 @@ enum StorageCommands {
     },
     /// List all storages.
     List {},
+    /// Add new device-specific name to existing storage.
+    Bind { storage: String },
 }
 
 mod devices;
@@ -89,7 +91,8 @@ fn main() -> Result<()> {
         .init();
     trace!("Start logging...");
 
-    let mut config_dir = dirs::config_local_dir().context("Failed to get config dir.")?;
+    let mut config_dir: std::path::PathBuf =
+        dirs::config_local_dir().context("Failed to get config dir.")?;
     config_dir.push("xdbm");
     trace!("Config dir: {:?}", config_dir);
 
@@ -214,6 +217,28 @@ fn main() -> Result<()> {
                     println!("{}", storage);
                 }
             }
+            StorageCommands::Bind {
+                storage: storage_name,
+            } => {
+                // get storages
+                let mut storages: Vec<Storage> = get_storages(&config_dir)?;
+                {
+                    // find matching storage
+                    let storage = &mut storages
+                        .iter_mut()
+                        .find(|s| s.name() == &storage_name)
+                        .context(format!("No storage has name {}", storage_name))?;
+                    // get disk from sysinfo
+                    let mut sysinfo = sysinfo::System::new_all();
+                    sysinfo.refresh_disks();
+                    let disk = select_sysinfo_disk(&sysinfo)?;
+                    // add to storages
+                    storage.add_alias(disk, &config_dir)?;
+                    trace!("storage: {}", storage);
+                }
+                trace!("bound new system name to the storage");
+                trace!("storages: {:#?}", storages);
+            }
         },
         Commands::Path {} => {
             println!("{}", &config_dir.display());
@@ -317,7 +342,23 @@ fn select_physical_storage(
     for disk in sys_disks.disks() {
         trace!("{:?}", disk)
     }
-    let available_disks = sys_disks
+    let disk = select_sysinfo_disk(&sys_disks)?;
+    // name the disk
+    let mut disk_name = String::new();
+    trace!("{}", disk_name);
+    loop {
+        disk_name = Text::new("Name for the disk:").prompt()?;
+        if storages.iter().all(|s| s.name() != &disk_name) {
+            break;
+        }
+        println!("The name {} is already used.", disk_name);
+    }
+    trace!("selected name: {}", disk_name);
+    PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)
+}
+
+fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
+    let available_disks = sysinfo
         .disks()
         .iter()
         .enumerate()
@@ -347,25 +388,13 @@ fn select_physical_storage(
     let disk = inquire::Select::new("Select drive:", available_disks).prompt()?;
     let disk_num: usize = disk.split(':').next().unwrap().parse().unwrap();
     trace!("disk_num: {}", disk_num);
-    let (_, disk) = sys_disks
+    let disk = sysinfo
         .disks()
         .iter()
-        .enumerate()
-        .find(|(i, _)| i == &disk_num)
-        .unwrap();
+        .nth(disk_num)
+        .context("no disk matched with selected one.")?;
     trace!("selected disk: {:?}", disk);
-    // name the disk
-    let mut disk_name = String::new();
-    trace!("{}", disk_name);
-    loop {
-        disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.iter().all(|s| s.name() != &disk_name) {
-            break;
-        }
-        println!("The name {} is already used.", disk_name);
-    }
-    trace!("selected name: {}", disk_name);
-    PhysicalDrivePartition::try_from_sysinfo_disk(disk, disk_name, device)
+    Ok(disk)
 }
 
 /// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).

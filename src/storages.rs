@@ -27,11 +27,20 @@ pub enum Storage {
 }
 
 impl Storage {
-    pub fn name(&self) -> &String {
+    pub fn add_alias(&mut self, disk: &sysinfo::Disk, config_dir: &std::path::PathBuf) -> anyhow::Result<()> {
+        match self {
+            Self::PhysicalStorage(s) => s.add_alias(disk, config_dir),
+        }
+    }
+}
+
+impl StorageExt for Storage {
+    fn name(&self) -> &String {
         match self {
             Self::PhysicalStorage(s) => s.name(),
         }
     }
+
 }
 
 impl fmt::Display for Storage {

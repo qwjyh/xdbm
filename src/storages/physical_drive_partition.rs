@@ -1,8 +1,8 @@
 //! Manipulate partition of physical drive (both removable and unremovable).
 
-use crate::devices::Device;
+use crate::{devices::Device, get_device};
 use crate::storages::StorageExt;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -47,28 +47,25 @@ impl PhysicalDrivePartition {
         })
     }
 
-    fn add_alias(
-        self,
-        disk: sysinfo::Disk,
-        device: Device,
-    ) -> Result<PhysicalDrivePartition, String> {
+    pub fn add_alias(
+        &mut self,
+        disk: &sysinfo::Disk,
+        config_dir: &std::path::PathBuf
+    ) -> Result<()> {
+        let device = get_device(&config_dir)?;
         let alias = match disk.name().to_str() {
             Some(s) => s.to_string(),
-            None => return Err("Failed to convert storage name to valid str.".to_string()),
+            None => return Err(anyhow!("Failed to convert storage name to valid str.")),
         };
-        let mut aliases = self.system_names;
-        let _ = match aliases.insert(device.name(), alias) {
-            Some(v) => v,
-            None => return Err("Failed to insert alias".to_string()),
+        let aliases = &mut self.system_names;
+        trace!("aliases: {:?}", aliases);
+        match aliases.insert(device.name(), alias) {
+            Some(v) => trace!("old val is: {}", v),
+            None => trace!("inserted new val"),
         };
-        Ok(PhysicalDrivePartition {
-            name: self.name,
-            kind: self.kind,
-            capacity: self.capacity,
-            fs: self.fs,
-            is_removable: self.is_removable,
-            system_names: aliases,
-        })
+        trace!("aliases: {:?}", aliases);
+        // self.system_names = aliases;
+        Ok(())
     }
 }
 
@@ -76,6 +73,7 @@ impl StorageExt for PhysicalDrivePartition {
     fn name(&self) -> &String {
         &self.name
     }
+
 }
 
 impl fmt::Display for PhysicalDrivePartition {
