@@ -60,11 +60,10 @@ impl PhysicalDrivePartition {
         let aliases = &mut self.system_names;
         trace!("aliases: {:?}", aliases);
         match aliases.insert(device.name(), alias) {
-            Some(v) => trace!("old val is: {}", v),
-            None => trace!("inserted new val"),
+            Some(v) => println!("Value updated. old val is: {}", v),
+            None => println!("inserted new val"),
         };
         trace!("aliases: {:?}", aliases);
-        // self.system_names = aliases;
         Ok(())
     }
 }
@@ -73,7 +72,6 @@ impl StorageExt for PhysicalDrivePartition {
     fn name(&self) -> &String {
         &self.name
     }
-
 }
 
 impl fmt::Display for PhysicalDrivePartition {

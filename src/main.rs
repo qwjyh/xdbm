@@ -17,6 +17,7 @@ use git2::{Commit, Oid, Repository};
 use inquire::{validator::Validation, Text};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
+use std::fmt::format;
 use std::{env, io::BufReader, path::Path};
 use std::{
     ffi::OsString,
@@ -76,6 +77,7 @@ enum StorageCommands {
     /// List all storages.
     List {},
     /// Add new device-specific name to existing storage.
+    /// For physical disk, the name is taken from system info automatically.
     Bind { storage: String },
 }
 
@@ -171,75 +173,88 @@ fn main() -> Result<()> {
             println!("Device added");
             full_status(&repo)?;
         }
-        Commands::Storage(storage) => match storage.command {
-            StorageCommands::Add { storage_type } => {
-                trace!("Storage Add {:?}", storage_type);
-                let repo = Repository::open(&config_dir).context(
-                    "Repository doesn't exist. Please run init to initialize the repository.",
-                )?;
-                trace!("repo state: {:?}", repo.state());
-                match storage_type {
-                    StorageType::Physical => {
-                        // Get storages
-                        let mut storages: Vec<Storage> = get_storages(&config_dir)?;
-                        trace!("found storages: {:?}", storages);
+        Commands::Storage(storage) => {
+            let repo = Repository::open(&config_dir).context(
+                "Repository doesn't exist. Please run init to initialize the repository.",
+            )?;
+            trace!("repo state: {:?}", repo.state());
+            match storage.command {
+                StorageCommands::Add { storage_type } => {
+                    trace!("Storage Add {:?}", storage_type);
+                    match storage_type {
+                        StorageType::Physical => {
+                            // Get storages
+                            let mut storages: Vec<Storage> = get_storages(&config_dir)?;
+                            trace!("found storages: {:?}", storages);
 
-                        // select storage
-                        let device = get_device(&config_dir)?;
-                        let storage = select_physical_storage(device, &storages)?;
-                        println!("storage: {:?}", storage);
-                        let new_storage_name = storage.name().clone();
+                            // select storage
+                            let device = get_device(&config_dir)?;
+                            let storage = select_physical_storage(device, &storages)?;
+                            println!("storage: {:?}", storage);
+                            let new_storage_name = storage.name().clone();
 
-                        // add to storages
-                        storages.push(Storage::PhysicalStorage(storage));
-                        trace!("updated storages: {:?}", storages);
+                            // add to storages
+                            storages.push(Storage::PhysicalStorage(storage));
+                            trace!("updated storages: {:?}", storages);
 
-                        // write to file
-                        write_storages(&config_dir, storages)?;
+                            // write to file
+                            write_storages(&config_dir, storages)?;
 
-                        // commit
-                        add_and_commit(
-                            &repo,
-                            &Path::new(STORAGESFILE),
-                            &format!("Add new storage(physical drive): {}", new_storage_name),
-                        )?;
+                            // commit
+                            add_and_commit(
+                                &repo,
+                                &Path::new(STORAGESFILE),
+                                &format!("Add new storage(physical drive): {}", new_storage_name),
+                            )?;
 
-                        println!("Added new storage.");
-                        trace!("Finished adding storage");
+                            println!("Added new storage.");
+                            trace!("Finished adding storage");
+                        }
                     }
                 }
-            }
-            StorageCommands::List {} => {
-                // Get storages
-                let storages: Vec<Storage> = get_storages(&config_dir)?;
-                trace!("found storages: {:?}", storages);
-                for storage in storages {
-                    println!("{}", storage);
+                StorageCommands::List {} => {
+                    // Get storages
+                    let storages: Vec<Storage> = get_storages(&config_dir)?;
+                    trace!("found storages: {:?}", storages);
+                    for storage in storages {
+                        println!("{}", storage);
+                    }
+                }
+                StorageCommands::Bind {
+                    storage: storage_name,
+                } => {
+                    // get storages
+                    let mut storages: Vec<Storage> = get_storages(&config_dir)?;
+                    let commit_comment = {
+                        // find matching storage
+                        let storage = &mut storages
+                            .iter_mut()
+                            .find(|s| s.name() == &storage_name)
+                            .context(format!("No storage has name {}", storage_name))?;
+                        // get disk from sysinfo
+                        let mut sysinfo = sysinfo::System::new_all();
+                        sysinfo.refresh_disks();
+                        let disk = select_sysinfo_disk(&sysinfo)?;
+                        let system_name = disk.name().to_str().context("Failed to convert disk name to valid string")?;
+                        // add to storages
+                        storage.add_alias(disk, &config_dir)?;
+                        trace!("storage: {}", storage);
+                        format!("{} to {}", system_name, storage.name())
+                    };
+                    trace!("bound new system name to the storage");
+                    trace!("storages: {:#?}", storages);
+
+                    write_storages(&config_dir, storages)?;
+                    // commit
+                    add_and_commit(
+                        &repo,
+                        &Path::new(STORAGESFILE),
+                        &format!("Bound new storage name to physical drive ({})", commit_comment),
+                    )?;
+                    println!("Bound new storage name to physical drive ({})", commit_comment);
                 }
             }
-            StorageCommands::Bind {
-                storage: storage_name,
-            } => {
-                // get storages
-                let mut storages: Vec<Storage> = get_storages(&config_dir)?;
-                {
-                    // find matching storage
-                    let storage = &mut storages
-                        .iter_mut()
-                        .find(|s| s.name() == &storage_name)
-                        .context(format!("No storage has name {}", storage_name))?;
-                    // get disk from sysinfo
-                    let mut sysinfo = sysinfo::System::new_all();
-                    sysinfo.refresh_disks();
-                    let disk = select_sysinfo_disk(&sysinfo)?;
-                    // add to storages
-                    storage.add_alias(disk, &config_dir)?;
-                    trace!("storage: {}", storage);
-                }
-                trace!("bound new system name to the storage");
-                trace!("storages: {:#?}", storages);
-            }
-        },
+        }
         Commands::Path {} => {
             println!("{}", &config_dir.display());
         }
