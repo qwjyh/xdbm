@@ -1,10 +1,11 @@
 //! Manipulates storages.
 
+use crate::storages::directory::Directory;
+use crate::storages::physical_drive_partition::PhysicalDrivePartition;
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
-use physical_drive_partition::PhysicalDrivePartition;
 use serde::{Deserialize, Serialize};
-use std::{ffi, fmt, fs, path::Path, io};
+use std::{ffi, fmt, fs, io, path::Path};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -12,6 +13,7 @@ pub const STORAGESFILE: &str = "storages.yml";
 #[derive(ValueEnum, Clone, Copy, Debug)]
 pub enum StorageType {
     Physical,
+    SubDirectory,
     // Online,
 }
 
@@ -19,6 +21,7 @@ pub enum StorageType {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Storage {
     PhysicalStorage(PhysicalDrivePartition),
+    SubDirectory(Directory),
     // /// Online storage provided by others.
     // OnlineStorage {
     //     name: String,
@@ -28,9 +31,14 @@ pub enum Storage {
 }
 
 impl Storage {
-    pub fn add_alias(&mut self, disk: &sysinfo::Disk, config_dir: &std::path::PathBuf) -> anyhow::Result<()> {
+    pub fn add_alias(
+        &mut self,
+        disk: &sysinfo::Disk,
+        config_dir: &std::path::PathBuf,
+    ) -> anyhow::Result<()> {
         match self {
             Self::PhysicalStorage(s) => s.add_alias(disk, config_dir),
+            Self::SubDirectory(_) => Err(anyhow!("SubDirectory doesn't have system alias.")),
         }
     }
 }
@@ -39,15 +47,16 @@ impl StorageExt for Storage {
     fn name(&self) -> &String {
         match self {
             Self::PhysicalStorage(s) => s.name(),
+            Self::SubDirectory(s) => s.name(),
         }
     }
-
 }
 
 impl fmt::Display for Storage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::PhysicalStorage(s) => s.fmt(f),
+            Self::SubDirectory(s) => s.fmt(f),
         }
     }
 }
@@ -57,6 +66,7 @@ pub trait StorageExt {
     fn name(&self) -> &String;
 }
 
+pub mod directory;
 pub mod physical_drive_partition;
 
 /// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).

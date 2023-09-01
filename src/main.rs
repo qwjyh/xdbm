@@ -213,6 +213,9 @@ fn main() -> Result<()> {
                             println!("Added new storage.");
                             trace!("Finished adding storage");
                         }
+                        StorageType::SubDirectory => {
+                            todo!()
+                        }
                     }
                 }
                 StorageCommands::List {} => {

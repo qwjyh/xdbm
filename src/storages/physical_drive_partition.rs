@@ -80,7 +80,7 @@ impl fmt::Display for PhysicalDrivePartition {
         let removable_indicator = if self.is_removable { "+" } else { "-" };
         write!(
             f,
-            "{name:<10} {size}  {removable:<1} {kind:<6} {fs:<5}",
+            "P {name:<10} {size}  {removable:<1} {kind:<6} {fs:<5}",
             name = self.name(),
             size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
             removable = removable_indicator,
