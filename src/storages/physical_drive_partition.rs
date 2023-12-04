@@ -1,16 +1,20 @@
 //! Manipulate partition of physical drive (both removable and unremovable).
 
-use crate::{devices::Device, get_device};
+use crate::devices;
 use crate::storages::{Storage, StorageExt};
+use crate::{devices::Device, get_device};
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use inquire::Text;
 use serde::{Deserialize, Serialize};
+use std::path;
 use std::{
     collections::{hash_map::RandomState, HashMap},
     fmt,
 };
 use sysinfo::{Disk, DiskExt, SystemExt};
+
+use super::local_info::LocalInfo;
 
 /// Partitoin of physical (on-premises) drive.
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,7 +24,13 @@ pub struct PhysicalDrivePartition {
     capacity: u64,
     fs: String,
     is_removable: bool,
-    system_names: HashMap<String, String, RandomState>,
+    // system_names: HashMap<String, String>,
+    local_info: HashMap<String, LocalInfo>,
+}
+
+pub struct PhysicalDrivePartitionLocal {
+    alias: String,
+    mount_path: path::PathBuf,
 }
 
 impl PhysicalDrivePartition {
@@ -38,30 +48,33 @@ impl PhysicalDrivePartition {
         let fs = disk.file_system();
         trace!("fs: {:?}", fs);
         let fs = std::str::from_utf8(fs)?;
+        let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
         Ok(PhysicalDrivePartition {
             name: name,
             kind: format!("{:?}", disk.kind()),
             capacity: disk.total_space(),
             fs: fs.to_string(),
             is_removable: disk.is_removable(),
-            system_names: HashMap::from([(device.name(), alias)]),
+            // system_names: HashMap::from([(device.name(), alias)]),
+            local_info: HashMap::from([(device.name(), local_info)]),
         })
     }
 
     pub fn add_alias(
         &mut self,
         disk: &sysinfo::Disk,
-        config_dir: &std::path::PathBuf
+        config_dir: &std::path::PathBuf,
     ) -> Result<()> {
         let device = get_device(&config_dir)?;
         let alias = match disk.name().to_str() {
             Some(s) => s.to_string(),
             None => return Err(anyhow!("Failed to convert storage name to valid str.")),
         };
-        let aliases = &mut self.system_names;
+        let new_local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
+        let aliases = &mut self.local_info;
         trace!("aliases: {:?}", aliases);
-        match aliases.insert(device.name(), alias) {
-            Some(v) => println!("Value updated. old val is: {}", v),
+        match aliases.insert(device.name(), new_local_info) {
+            Some(v) => println!("Value updated. old val is: {:?}", v),
             None => println!("inserted new val"),
         };
         trace!("aliases: {:?}", aliases);
@@ -73,6 +86,14 @@ impl StorageExt for PhysicalDrivePartition {
     fn name(&self) -> &String {
         &self.name
     }
+
+    // fn mount_path(&self, &device: &devices::Device, &storages: &HashMap<String, Storage>) -> Result<&path::PathBuf> {
+    //     Ok(&self
+    //         .local_info
+    //         .get(&device.name())
+    //         .context(format!("LocalInfo for storage: {} not found", &self.name()))?
+    //         .mount_path())
+    // }
 }
 
 impl fmt::Display for PhysicalDrivePartition {
@@ -91,12 +112,11 @@ impl fmt::Display for PhysicalDrivePartition {
     }
 }
 
-
 /// Interactively select physical storage from available disks in sysinfo.
 pub fn select_physical_storage(
     device: Device,
-    storages: &Vec<Storage>,
-) -> Result<PhysicalDrivePartition> {
+    storages: &HashMap<String, Storage>,
+) -> Result<(String, PhysicalDrivePartition)> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
     let mut sys_disks = sysinfo::System::new_all();
@@ -111,13 +131,14 @@ pub fn select_physical_storage(
     trace!("{}", disk_name);
     loop {
         disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.iter().all(|s| s.name() != &disk_name) {
+        if storages.iter().all(|(k, v)| k != &disk_name) {
             break;
         }
         println!("The name {} is already used.", disk_name);
     }
     trace!("selected name: {}", disk_name);
-    PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)
+    let storage = PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name.clone(), device)?;
+    Ok((disk_name, storage))
 }
 
 pub fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
