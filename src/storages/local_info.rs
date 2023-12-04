@@ -1,3 +1,5 @@
+//! Device specific common data for storages.
+
 use serde::{Deserialize, Serialize};
 use std::path;
 

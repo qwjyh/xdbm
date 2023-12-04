@@ -1,7 +1,9 @@
-//! # Main variables
+//! # Main types
 //! * [Device]: represents PC.
-//! * [Storage]: all storages
-//!     * [PhysicalDrivePartition]: partition on a physical disk.
+//! * [Storage]: all storages. module [storages]
+//!     * [PhysicalDrivePartition]: partition on a physical disk. [storages::physical_drive_partition]
+//!     * [Directory]: sub-directory of other storages. [storages::directory]
+//! * [storages::local_info::LocalInfo]: stores [Device] specific common data for [Storage]s.
 //!
 
 #[macro_use]
@@ -26,18 +28,15 @@ use std::{
     ffi::OsString,
     io::{self, BufWriter},
 };
-use std::{
-    fmt::Debug,
-    fs::{File, OpenOptions},
-};
+use std::{fmt::Debug, fs::File};
 use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
 use crate::storages::{
-    get_storages, local_info, physical_drive_partition::*, write_storages, Storage, StorageExt,
-    StorageType, STORAGESFILE,
+    directory::Directory, get_storages, local_info, physical_drive_partition::*, write_storages,
+    Storage, StorageExt, StorageType, STORAGESFILE,
 };
-use devices::{Device, DEVICESFILE};
+use devices::{Device, DEVICESFILE, *};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -319,31 +318,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Get devname of the device from file `devname`.
-fn get_devname(config_dir: &Path) -> Result<String> {
-    let f = File::open(config_dir.join("devname")).context("Failed to open devname file")?;
-    let bufreader = BufReader::new(f);
-    let devname = bufreader
-        .lines()
-        .next()
-        .context("Couldn't get devname.")??;
-    trace!("devname: {}", devname);
-    Ok(devname)
-}
-
-/// Get current device.
-fn get_device(config_dir: &Path) -> Result<Device> {
-    let devname = get_devname(config_dir)?;
-    let devices = get_devices(config_dir)?;
-    trace!("devname: {}", devname);
-    trace!("devices: {:?}", devices);
-    devices
-        .into_iter()
-        .filter(|dev| dev.name() == devname)
-        .next()
-        .context("Couldn't find Device in devices.yml")
-}
-
 /// Set device name interactively.
 fn set_device_name() -> Result<Device> {
     let validator = |input: &str| {
@@ -374,27 +348,6 @@ fn set_device_name() -> Result<Device> {
     trace!("Serialized: \n{}", serde_yaml::to_string(&device).unwrap());
 
     return Ok(device);
-}
-
-/// Get `Vec<Device>` from yaml file in `config_dir`.
-fn get_devices(config_dir: &Path) -> Result<Vec<Device>> {
-    trace!("get_devices");
-    let f = File::open(config_dir.join(DEVICESFILE))?;
-    let reader = BufReader::new(f);
-    let yaml: Vec<Device> =
-        serde_yaml::from_reader(reader).context("Failed to parse devices.yml")?;
-    return Ok(yaml);
-}
-
-/// Write `devices` to yaml file in `config_dir`.
-fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
-    trace!("write_devices");
-    let f = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .open(config_dir.join(DEVICESFILE))?;
-    let writer = BufWriter::new(f);
-    serde_yaml::to_writer(writer, &devices).map_err(|e| anyhow!(e))
 }
 
 fn ask_unique_name(storages: &HashMap<String, Storage>, target: String) -> Result<String> {
