@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::path;
 
+/// Store local (device-specific) information
+///
+/// - `alias`: name in device
+/// - `mount_path`: mount path on the device
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LocalInfo {
     alias: String,
@@ -12,7 +16,7 @@ impl LocalInfo {
         LocalInfo { alias, mount_path }
     }
 
-    pub fn mount_path(&self) -> &path::PathBuf {
-        &self.mount_path
+    pub fn mount_path(&self) -> path::PathBuf {
+        self.mount_path.clone()
     }
 }

@@ -200,16 +200,18 @@ fn main() -> Result<()> {
                     let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
                     trace!("found storages: {:?}", storages);
 
+                    let device = get_device(&config_dir)?;
                     let (key, storage) = match storage_type {
                         StorageType::Physical => {
                             // select storage
-                            let device = get_device(&config_dir)?;
                             let (key, storage) = select_physical_storage(device, &storages)?;
                             println!("storage: {}: {:?}", key, storage);
                             (key, Storage::PhysicalStorage(storage))
                         }
                         StorageType::SubDirectory => {
-                            let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+                            if storages.is_empty() {
+                                return Err(anyhow!("No storages found. Please add at least 1 physical storage first."));
+                            }
                             let path = path.unwrap_or_else(|| {
                                 let mut cmd = Cli::command();
                                 cmd.error(
@@ -222,9 +224,17 @@ fn main() -> Result<()> {
                             // Nightly feature std::path::absolute
                             let path = path.canonicalize()?;
                             trace!("canonicalized: path: {:?}", path);
-                            
-                            // let (key, storage) = storages::directory::Directory::new(name, parent, relative_path, notes)
-                            todo!()
+
+                            let key_name = ask_unique_name(&storages, "sub-directory".to_string())?;
+                            let notes = Text::new("Notes for this sub-directory:").prompt()?;
+                            let storage = storages::directory::Directory::try_from_device_path(
+                                key_name.clone(),
+                                path,
+                                notes,
+                                &device,
+                                &storages,
+                            )?;
+                            (key_name, Storage::SubDirectory(storage))
                         }
                     };
 
@@ -249,8 +259,10 @@ fn main() -> Result<()> {
                     // Get storages
                     let storages: HashMap<String, Storage> = get_storages(&config_dir)?;
                     trace!("found storages: {:?}", storages);
-                    for (k, storage) in storages {
+                    let device = get_device(&config_dir)?;
+                    for (k, storage) in &storages {
                         println!("{}: {}", k, storage);
+                        println!("    {}", storage.mount_path(&device, &storages)?.display());
                     }
                 }
                 StorageCommands::Bind {
@@ -307,7 +319,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Get devname of the device.
+/// Get devname of the device from file `devname`.
 fn get_devname(config_dir: &Path) -> Result<String> {
     let f = File::open(config_dir.join("devname")).context("Failed to open devname file")?;
     let bufreader = BufReader::new(f);
@@ -383,6 +395,18 @@ fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
         .open(config_dir.join(DEVICESFILE))?;
     let writer = BufWriter::new(f);
     serde_yaml::to_writer(writer, &devices).map_err(|e| anyhow!(e))
+}
+
+fn ask_unique_name(storages: &HashMap<String, Storage>, target: String) -> Result<String> {
+    let mut disk_name = String::new();
+    loop {
+        disk_name = Text::new(format!("Name for {}:", target).as_str()).prompt()?;
+        if storages.iter().all(|(k, v)| k != &disk_name) {
+            break;
+        }
+        println!("The name {} is already used.", disk_name);
+    }
+    Ok(disk_name)
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {

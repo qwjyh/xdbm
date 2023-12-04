@@ -1,12 +1,12 @@
 //! Manipulates storages.
 
-use crate::storages::physical_drive_partition::PhysicalDrivePartition;
+use crate::storages::
 use crate::storages::directory::Directory;
-use crate::devices;
+use crate::storages::physical_drive_partition::PhysicalDrivePartition;
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ffi, fmt, fs, io, path};
+use std::{ffi, fmt, fs, io, path::Path, collections::HashMap};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -52,27 +52,6 @@ impl StorageExt for Storage {
             Self::SubDirectory(s) => s.name(),
         }
     }
-
-    fn has_alias(
-        &self,
-        device: &devices::Device,
-    ) -> bool {
-        match self {
-            Self::PhysicalStorage(s) => s.has_alias(&device),
-            Self::SubDirectory(s) => s.has_alias(&device),
-        }
-    }
-
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &HashMap<String, Storage>,
-    ) -> Result<path::PathBuf> {
-        match self {
-            Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
-            Self::SubDirectory(s) => s.mount_path(&device, &storages),
-        }
-    }
 }
 
 impl fmt::Display for Storage {
@@ -87,21 +66,14 @@ impl fmt::Display for Storage {
 /// Trait to manipulate all `Storage`s (Enums).
 pub trait StorageExt {
     fn name(&self) -> &String;
-    fn has_alias(&self, device: &devices::Device) -> bool;
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &HashMap<String, Storage>,
-    ) -> Result<path::PathBuf>;
 }
 
 pub mod directory;
-pub mod local_info;
 pub mod physical_drive_partition;
 
 /// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
 /// If [DEVICESFILE] isn't found, return empty vec.
-pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>> {
+pub fn get_storages(config_dir: &Path) -> Result<HashMap<String, Storage>> {
     if let Some(storages_file) = fs::read_dir(&config_dir)?
         .filter(|f| {
             f.as_ref().map_or_else(
@@ -127,7 +99,7 @@ pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>>
 }
 
 /// Write `storages` to yaml file in `config_dir`.
-pub fn write_storages(config_dir: &path::Path, storages: HashMap<String, Storage>) -> Result<()> {
+pub fn write_storages(config_dir: &Path, storages: HashMap<String, Storage>) -> Result<()> {
     let f = fs::File::create(config_dir.join(STORAGESFILE))?;
     let writer = io::BufWriter::new(f);
     serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))

@@ -48,7 +48,7 @@ impl PhysicalDrivePartition {
         let fs = disk.file_system();
         trace!("fs: {:?}", fs);
         let fs = std::str::from_utf8(fs)?;
-        let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
+        let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf().canonicalize()?);
         Ok(PhysicalDrivePartition {
             name: name,
             kind: format!("{:?}", disk.kind()),
@@ -87,13 +87,17 @@ impl StorageExt for PhysicalDrivePartition {
         &self.name
     }
 
-    // fn mount_path(&self, &device: &devices::Device, &storages: &HashMap<String, Storage>) -> Result<&path::PathBuf> {
-    //     Ok(&self
-    //         .local_info
-    //         .get(&device.name())
-    //         .context(format!("LocalInfo for storage: {} not found", &self.name()))?
-    //         .mount_path())
-    // }
+    fn has_alias(&self, device: &devices::Device) -> bool {
+        self.local_info.get(&device.name()).is_some()
+    }
+
+    fn mount_path(&self, device: &devices::Device, _: &HashMap<String, Storage>) -> Result<path::PathBuf> {
+        Ok(self
+            .local_info
+            .get(&device.name())
+            .context(format!("LocalInfo for storage: {} not found", &self.name()))?
+            .mount_path())
+    }
 }
 
 impl fmt::Display for PhysicalDrivePartition {
