@@ -14,7 +14,7 @@ use std::{
 };
 use sysinfo::{Disk, DiskExt, SystemExt};
 
-use super::local_info::LocalInfo;
+use super::local_info::{self, LocalInfo};
 
 /// Partitoin of physical (on-premises) drive.
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,6 +29,25 @@ pub struct PhysicalDrivePartition {
 }
 
 impl PhysicalDrivePartition {
+    pub fn new(
+        name: String,
+        kind: String,
+        capacity: u64,
+        fs: String,
+        is_removable: bool,
+        local_info: LocalInfo,
+        device: &Device
+    ) -> PhysicalDrivePartition {
+        PhysicalDrivePartition {
+            name,
+            kind,
+            capacity,
+            fs,
+            is_removable,
+            local_info: HashMap::from([(device.name(), local_info)]),
+        }
+    }
+
     /// Try to get Physical drive info from sysinfo.
     pub fn try_from_sysinfo_disk(
         disk: &sysinfo::Disk,
@@ -122,8 +141,11 @@ pub fn select_physical_storage(
 ) -> Result<(String, PhysicalDrivePartition)> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
-    let mut sys_disks = sysinfo::System::new_all();
-    sys_disks.refresh_disks();
+    let mut sys_disks =
+        sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_disks_list());
+    trace!("refresh");
+    // sys_disks.refresh_disks_list();
+    // sys_disks.refresh_disks();
     trace!("Available disks");
     for disk in sys_disks.disks() {
         trace!("{:?}", disk)

@@ -16,10 +16,11 @@ use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use git2::{Commit, Oid, Repository};
+use inquire::{min_length, Confirm, CustomType, Select};
 use inquire::{validator::Validation, Text};
 use serde_yaml;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 use std::{env, io::BufReader, path::Path};
 use std::{
     ffi::OsString,
@@ -29,6 +30,7 @@ use std::{fmt::Debug, fs::File};
 use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
+use crate::inquire_filepath_completer::FilePathCompleter;
 use crate::storages::{
     directory::Directory, get_storages, local_info, online_storage, physical_drive_partition::*,
     write_storages, Storage, StorageExt, StorageType, STORAGESFILE,
@@ -62,6 +64,9 @@ enum Commands {
 
     /// Sync with git repo.
     Sync {},
+
+    /// Check config files.
+    Check {},
 }
 
 #[derive(clap::Args)]
@@ -90,11 +95,11 @@ enum StorageCommands {
 }
 
 mod devices;
+mod inquire_filepath_completer;
 mod storages;
 
 struct BackupLog {}
 
-#[feature(absolute_path)]
 fn main() -> Result<()> {
     let cli = Cli::parse();
     env_logger::Builder::new()
@@ -200,8 +205,66 @@ fn main() -> Result<()> {
                     let device = get_device(&config_dir)?;
                     let (key, storage) = match storage_type {
                         StorageType::Physical => {
-                            // select storage
-                            let (key, storage) = select_physical_storage(device, &storages)?;
+                            let use_sysinfo = {
+                                let options = vec![
+                                    "Fetch disk information automatically.",
+                                    "Type disk information manually.",
+                                ];
+                                let ans = Select::new("Do you fetch disk information automatically? (it may take a few minutes)", options)
+                                    .prompt().context("Failed to get response. Please try again.")?;
+                                match ans {
+                                    "Fetch disk information automatically." => true,
+                                    _ => false,
+                                }
+                            };
+                            let (key, storage) = if use_sysinfo {
+                                // select storage
+                                select_physical_storage(device, &storages)?
+                            } else {
+                                let mut name = String::new();
+                                loop {
+                                    name = Text::new("Name for the storage:")
+                                        .with_validator(min_length!(0, "At least 1 character"))
+                                        .prompt()
+                                        .context("Failed to get Name")?;
+                                    if storages.iter().all(|(k, _v)| k != &name) {
+                                        break;
+                                    }
+                                    println!("The name {} is already used.", name);
+                                }
+                                let kind = Text::new("Kind of storage (ex. SSD):")
+                                    .prompt()
+                                    .context("Failed to get kind.")?;
+                                let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
+                                    .with_error_message("Please type number.")
+                                    .prompt()
+                                    .context("Failed to get capacity.")?;
+                                let fs = Text::new("filesystem:")
+                                    .prompt()
+                                    .context("Failed to get fs.")?;
+                                let is_removable = Confirm::new("Is removable")
+                                    .prompt()
+                                    .context("Failed to get is_removable")?;
+                                let mount_path: path::PathBuf = PathBuf::from(
+                                    Text::new("mount path:")
+                                        .with_autocomplete(FilePathCompleter::default())
+                                        .prompt()?,
+                                );
+                                let local_info =
+                                    local_info::LocalInfo::new("".to_string(), mount_path);
+                                (
+                                    name.clone(),
+                                    PhysicalDrivePartition::new(
+                                        name,
+                                        kind,
+                                        capacity,
+                                        fs,
+                                        is_removable,
+                                        local_info,
+                                        &device,
+                                    ),
+                                )
+                            };
                             println!("storage: {}: {:?}", key, storage);
                             (key, Storage::PhysicalStorage(storage))
                         }
@@ -312,6 +375,7 @@ fn main() -> Result<()> {
         Commands::Sync {} => {
             unimplemented!("Sync is not implemented")
         }
+        Commands::Check {} => todo!(),
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
