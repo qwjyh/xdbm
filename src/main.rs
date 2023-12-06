@@ -12,16 +12,13 @@ extern crate log;
 extern crate dirs;
 
 use anyhow::{anyhow, Context, Result};
-use byte_unit::Byte;
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 use git2::{Commit, Oid, Repository};
 use inquire::{validator::Validation, Text};
-use serde::{Deserialize, Serialize};
 use serde_yaml;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::path::PathBuf;
 use std::{env, io::BufReader, path::Path};
 use std::{
@@ -33,8 +30,8 @@ use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
 use crate::storages::{
-    directory::Directory, get_storages, local_info, physical_drive_partition::*, write_storages,
-    Storage, StorageExt, StorageType, STORAGESFILE,
+    directory::Directory, get_storages, local_info, online_storage, physical_drive_partition::*,
+    write_storages, Storage, StorageExt, StorageType, STORAGESFILE,
 };
 use devices::{Device, DEVICESFILE, *};
 
@@ -81,6 +78,7 @@ enum StorageCommands {
         #[arg(value_enum)]
         storage_type: StorageType,
 
+        // TODO: set this require and select matching disk for physical
         #[arg(short, long, value_name = "PATH")]
         path: Option<PathBuf>,
     },
@@ -235,6 +233,7 @@ fn main() -> Result<()> {
                             )?;
                             (key_name, Storage::SubDirectory(storage))
                         }
+                        StorageType::Online => todo!(),
                     };
 
                     // add to storages
@@ -283,7 +282,7 @@ fn main() -> Result<()> {
                             .to_str()
                             .context("Failed to convert disk name to valid string")?;
                         // add to storages
-                        storage.add_alias(disk, &config_dir)?;
+                        storage.bind_device(disk, &config_dir)?;
                         trace!("storage: {}", storage);
                         format!("{} to {}", system_name, storage.name())
                     };

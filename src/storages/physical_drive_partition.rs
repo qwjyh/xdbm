@@ -28,11 +28,6 @@ pub struct PhysicalDrivePartition {
     local_info: HashMap<String, LocalInfo>,
 }
 
-pub struct PhysicalDrivePartitionLocal {
-    alias: String,
-    mount_path: path::PathBuf,
-}
-
 impl PhysicalDrivePartition {
     /// Try to get Physical drive info from sysinfo.
     pub fn try_from_sysinfo_disk(
@@ -60,7 +55,7 @@ impl PhysicalDrivePartition {
         })
     }
 
-    pub fn add_alias(
+    pub fn bind_device(
         &mut self,
         disk: &sysinfo::Disk,
         config_dir: &std::path::PathBuf,

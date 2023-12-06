@@ -2,13 +2,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fmt::{self, write},
-    hash::Hash,
-    path,
-    rc::Rc,
-};
+use std::{collections::HashMap, fmt, path};
 
 use crate::devices;
 
@@ -31,7 +25,7 @@ impl Directory {
     /// - `notes`: supplimental notes.
     fn new(
         name: String,
-        parent: String, // todo implement serialize
+        parent: String,
         relative_path: path::PathBuf,
         notes: String,
         local_info: HashMap<String, LocalInfo>,
@@ -58,7 +52,11 @@ impl Directory {
             .filter_map(|(k, v)| {
                 let diff = pathdiff::diff_paths(&path, v.mount_path(&device, &storages).unwrap())?;
                 trace!("Pathdiff: {:?}", diff);
-                Some((k, diff))
+                if diff.components().any(|c| c == path::Component::ParentDir) {
+                    None
+                } else {
+                    Some((k, diff))
+                }
             })
             .min_by_key(|(_k, v)| {
                 let diff_paths: Vec<path::Component<'_>> = v.components().collect();
@@ -105,6 +103,16 @@ impl Directory {
         let parent = self.parent(&storages)?;
         let parent_mount_path = parent.mount_path(&device, &storages)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
+    }
+
+    fn bind_device(&mut self, alias: String, device: &devices::Device, storages: &HashMap<String, Storage>) -> Result<()> {
+        let mount_path = self.mount_path(&device, &storages)?;
+        let new_local_info = LocalInfo::new(alias, mount_path);
+        match self.local_info.insert(device.name(), new_local_info) {
+            Some(v) => println!("Value updated. old val is: {:?}", v),
+            None => println!("inserted new val"),
+        };
+        Ok(())
     }
 }
 

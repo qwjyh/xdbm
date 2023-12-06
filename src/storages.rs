@@ -1,8 +1,9 @@
 //! Manipulates storages.
 
-use crate::storages::physical_drive_partition::PhysicalDrivePartition;
-use crate::storages::directory::Directory;
 use crate::devices;
+use crate::storages::directory::Directory;
+use crate::storages::online_storage::OnlineStorage;
+use crate::storages::physical_drive_partition::PhysicalDrivePartition;
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ pub const STORAGESFILE: &str = "storages.yml";
 pub enum StorageType {
     Physical,
     SubDirectory,
-    // Online,
+    Online,
 }
 
 /// All storage types.
@@ -23,24 +24,20 @@ pub enum StorageType {
 pub enum Storage {
     PhysicalStorage(PhysicalDrivePartition),
     SubDirectory(Directory),
-    // /// Online storage provided by others.
-    // OnlineStorage {
-    //     name: String,
-    //     provider: String,
-    //     capacity: u8,
-    // },
+    Online(OnlineStorage),
 }
 
 impl Storage {
     /// Add or update alias of `disk` for current device.
-    pub fn add_alias(
+    pub fn bind_device(
         &mut self,
         disk: &sysinfo::Disk,
         config_dir: &std::path::PathBuf,
     ) -> anyhow::Result<()> {
         match self {
-            Self::PhysicalStorage(s) => s.add_alias(disk, config_dir),
+            Self::PhysicalStorage(s) => s.bind_device(disk, config_dir),
             Self::SubDirectory(_) => Err(anyhow!("SubDirectory doesn't have system alias.")),
+            Self::Online(_) => todo!(),
         }
     }
 }
@@ -50,16 +47,15 @@ impl StorageExt for Storage {
         match self {
             Self::PhysicalStorage(s) => s.name(),
             Self::SubDirectory(s) => s.name(),
+            Self::Online(s) => s.name(),
         }
     }
 
-    fn has_alias(
-        &self,
-        device: &devices::Device,
-    ) -> bool {
+    fn has_alias(&self, device: &devices::Device) -> bool {
         match self {
             Self::PhysicalStorage(s) => s.has_alias(&device),
             Self::SubDirectory(s) => s.has_alias(&device),
+            Self::Online(s) => s.has_alias(&device),
         }
     }
 
@@ -71,6 +67,7 @@ impl StorageExt for Storage {
         match self {
             Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
             Self::SubDirectory(s) => s.mount_path(&device, &storages),
+            Self::Online(s) => s.mount_path(&device, &storages),
         }
     }
 }
@@ -80,6 +77,7 @@ impl fmt::Display for Storage {
         match self {
             Self::PhysicalStorage(s) => s.fmt(f),
             Self::SubDirectory(s) => s.fmt(f),
+            Self::Online(s) => s.fmt(f),
         }
     }
 }
@@ -88,6 +86,7 @@ impl fmt::Display for Storage {
 pub trait StorageExt {
     fn name(&self) -> &String;
     fn has_alias(&self, device: &devices::Device) -> bool;
+    /// Get mount path of `self` on `device`.
     fn mount_path(
         &self,
         device: &devices::Device,
@@ -97,6 +96,7 @@ pub trait StorageExt {
 
 pub mod directory;
 pub mod local_info;
+pub mod online_storage;
 pub mod physical_drive_partition;
 
 /// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
