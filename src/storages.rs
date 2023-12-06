@@ -99,8 +99,8 @@ pub mod local_info;
 pub mod online_storage;
 pub mod physical_drive_partition;
 
-/// Get `Vec<Storage>` from devices.yml([DEVICESFILE]).
-/// If [DEVICESFILE] isn't found, return empty vec.
+/// Get `HashMap<String, Storage>` from devices.yml([devices::DEVICESFILE]).
+/// If [devices::DEVICESFILE] isn't found, return empty vec.
 pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>> {
     if let Some(storages_file) = fs::read_dir(&config_dir)?
         .filter(|f| {
