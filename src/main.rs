@@ -326,19 +326,25 @@ fn main() -> Result<()> {
                                 }
                                 println!("The name {} is already used.", name);
                             }
-                            let provider = Text::new("Provider:").prompt().context("Failed to get provider")?;
+                            let provider = Text::new("Provider:")
+                                .prompt()
+                                .context("Failed to get provider")?;
                             let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
                                 .with_error_message("Please type number.")
                                 .prompt()
                                 .context("Failed to get capacity.")?;
-                            let alias = Text::new("Alias:").prompt().context("Failed to get provider")?;
+                            let alias = Text::new("Alias:")
+                                .prompt()
+                                .context("Failed to get provider")?;
                             let storage = OnlineStorage::new(
-                                    name.clone(), provider, capacity, alias, path, &device,
-                                );
-                            (
-                                name,
-                                Storage::Online(storage),
-                            )
+                                name.clone(),
+                                provider,
+                                capacity,
+                                alias,
+                                path,
+                                &device,
+                            );
+                            (name, Storage::Online(storage))
                         }
                     };
 
@@ -418,7 +424,11 @@ fn main() -> Result<()> {
         Commands::Sync {} => {
             unimplemented!("Sync is not implemented")
         }
-        Commands::Check {} => todo!(),
+        Commands::Check {} => {
+            println!("Config dir: {}", &config_dir.display());
+            let _storages = storages::get_storages(&config_dir).context("Failed to parse storages file.");
+            todo!()
+        },
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
