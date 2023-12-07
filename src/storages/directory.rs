@@ -104,16 +104,6 @@ impl Directory {
         let parent_mount_path = parent.mount_path(&device, &storages)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
     }
-
-    fn bind_device(&mut self, alias: String, device: &devices::Device, storages: &HashMap<String, Storage>) -> Result<()> {
-        let mount_path = self.mount_path(&device, &storages)?;
-        let new_local_info = LocalInfo::new(alias, mount_path);
-        match self.local_info.insert(device.name(), new_local_info) {
-            Some(v) => println!("Value updated. old val is: {:?}", v),
-            None => println!("inserted new val"),
-        };
-        Ok(())
-    }
 }
 
 impl StorageExt for Directory {
@@ -121,8 +111,8 @@ impl StorageExt for Directory {
         &self.name
     }
 
-    fn has_alias(&self, device: &devices::Device) -> bool {
-        self.local_info.get(&device.name()).is_some()
+    fn local_info(&self, device: &devices::Device) -> Option<&LocalInfo> {
+        self.local_info.get(&device.name())
     }
 
     fn mount_path(
@@ -131,6 +121,21 @@ impl StorageExt for Directory {
         storages: &HashMap<String, Storage>,
     ) -> Result<path::PathBuf> {
         Ok(self.mount_path(device, storages)?)
+    }
+
+    /// This method doesn't use `mount_path`.
+    fn bound_on_device(
+        &mut self,
+        alias: String,
+        mount_point: path::PathBuf,
+        device: &devices::Device,
+    ) -> Result<()> {
+        let new_local_info = LocalInfo::new(alias, mount_point);
+        match self.local_info.insert(device.name(), new_local_info) {
+            Some(v) => println!("Value updated. old val is: {:?}", v),
+            None => println!("inserted new val"),
+        };
+        Ok(())
     }
 }
 

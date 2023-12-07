@@ -27,20 +27,7 @@ pub enum Storage {
     Online(OnlineStorage),
 }
 
-impl Storage {
-    /// Add or update alias of `disk` for current device.
-    pub fn bind_device(
-        &mut self,
-        disk: &sysinfo::Disk,
-        config_dir: &std::path::PathBuf,
-    ) -> anyhow::Result<()> {
-        match self {
-            Self::PhysicalStorage(s) => s.bind_device(disk, config_dir),
-            Self::SubDirectory(_) => Err(anyhow!("SubDirectory doesn't have system alias.")),
-            Self::Online(_) => todo!(),
-        }
-    }
-}
+impl Storage {}
 
 impl StorageExt for Storage {
     fn name(&self) -> &String {
@@ -51,11 +38,11 @@ impl StorageExt for Storage {
         }
     }
 
-    fn has_alias(&self, device: &devices::Device) -> bool {
+    fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo> {
         match self {
-            Self::PhysicalStorage(s) => s.has_alias(&device),
-            Self::SubDirectory(s) => s.has_alias(&device),
-            Self::Online(s) => s.has_alias(&device),
+            Self::PhysicalStorage(s) => s.local_info(device),
+            Self::SubDirectory(s) => s.local_info(device),
+            Self::Online(s) => s.local_info(device),
         }
     }
 
@@ -68,6 +55,19 @@ impl StorageExt for Storage {
             Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
             Self::SubDirectory(s) => s.mount_path(&device, &storages),
             Self::Online(s) => s.mount_path(&device, &storages),
+        }
+    }
+
+    fn bound_on_device(
+        &mut self,
+        alias: String,
+        mount_point: path::PathBuf,
+        device: &devices::Device,
+    ) -> Result<()> {
+        match self {
+            Storage::PhysicalStorage(s) => s.bound_on_device(alias, mount_point, device),
+            Storage::SubDirectory(s) => s.bound_on_device(alias, mount_point, device),
+            Storage::Online(s) => s.bound_on_device(alias, mount_point, device),
         }
     }
 }
@@ -85,13 +85,30 @@ impl fmt::Display for Storage {
 /// Trait to manipulate all `Storage`s (Enums).
 pub trait StorageExt {
     fn name(&self) -> &String;
-    fn has_alias(&self, device: &devices::Device) -> bool;
+
+    /// Return `true` if `self` has local info on the `device`.
+    /// Used to check if the storage is bound on the `device`.
+    fn has_alias(&self, device: &devices::Device) -> bool {
+        self.local_info(device).is_some()
+    }
+
+    /// Get local info of `device`.
+    fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo>;
+
     /// Get mount path of `self` on `device`.
     fn mount_path(
         &self,
         device: &devices::Device,
         storages: &HashMap<String, Storage>,
     ) -> Result<path::PathBuf>;
+
+    /// Add local info of `device` to `self`.
+    fn bound_on_device(
+        &mut self,
+        alias: String,
+        mount_point: path::PathBuf,
+        device: &devices::Device,
+    ) -> Result<()>;
 }
 
 pub mod directory;

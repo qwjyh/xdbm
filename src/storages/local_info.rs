@@ -18,6 +18,10 @@ impl LocalInfo {
         LocalInfo { alias, mount_path }
     }
 
+    pub fn alias(&self) -> String {
+        self.alias.clone() // ?
+    }
+
     pub fn mount_path(&self) -> path::PathBuf {
         self.mount_path.clone()
     }

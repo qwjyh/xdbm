@@ -36,7 +36,7 @@ impl PhysicalDrivePartition {
         fs: String,
         is_removable: bool,
         local_info: LocalInfo,
-        device: &Device
+        device: &Device,
     ) -> PhysicalDrivePartition {
         PhysicalDrivePartition {
             name,
@@ -101,8 +101,8 @@ impl StorageExt for PhysicalDrivePartition {
         &self.name
     }
 
-    fn has_alias(&self, device: &devices::Device) -> bool {
-        self.local_info.get(&device.name()).is_some()
+    fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo> {
+        self.local_info.get(&device.name())
     }
 
     fn mount_path(
@@ -115,6 +115,22 @@ impl StorageExt for PhysicalDrivePartition {
             .get(&device.name())
             .context(format!("LocalInfo for storage: {} not found", &self.name()))?
             .mount_path())
+    }
+
+    fn bound_on_device(
+        &mut self,
+        alias: String,
+        mount_point: path::PathBuf,
+        device: &devices::Device,
+    ) -> Result<()> {
+        match self
+            .local_info
+            .insert(device.name(), LocalInfo::new(alias, mount_point))
+        {
+            Some(old) => info!("Value replaced. Old value: {:?}", old),
+            None => info!("New value inserted."),
+        };
+        Ok(())
     }
 }
 
@@ -141,7 +157,7 @@ pub fn select_physical_storage(
 ) -> Result<(String, PhysicalDrivePartition)> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
-    let mut sys_disks =
+    let sys_disks =
         sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_disks_list());
     trace!("refresh");
     // sys_disks.refresh_disks_list();

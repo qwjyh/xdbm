@@ -31,6 +31,7 @@ use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
 use crate::inquire_filepath_completer::FilePathCompleter;
+use crate::storages::online_storage::OnlineStorage;
 use crate::storages::{
     directory::Directory, get_storages, local_info, online_storage, physical_drive_partition::*,
     write_storages, Storage, StorageExt, StorageType, STORAGESFILE,
@@ -89,9 +90,18 @@ enum StorageCommands {
     },
     /// List all storages.
     List {},
-    /// Add new device-specific name to existing storage.
+    /// Make `storage` available for the current device.
     /// For physical disk, the name is taken from system info automatically.
-    Bind { storage: String },
+    Bind {
+        /// Name of the storage.
+        storage: String,
+        /// Device specific alias for the storage.
+        #[arg(short, long)]
+        alias: String,
+        /// Mount point on this device.
+        #[arg(short, long)]
+        path: path::PathBuf,
+    },
 }
 
 mod devices;
@@ -296,7 +306,40 @@ fn main() -> Result<()> {
                             )?;
                             (key_name, Storage::SubDirectory(storage))
                         }
-                        StorageType::Online => todo!(),
+                        StorageType::Online => {
+                            let path = path.unwrap_or_else(|| {
+                                let mut cmd = Cli::command();
+                                cmd.error(
+                                    ErrorKind::MissingRequiredArgument,
+                                    "<PATH> is required with sub-directory",
+                                )
+                                .exit();
+                            });
+                            let mut name = String::new();
+                            loop {
+                                name = Text::new("Name for the storage:")
+                                    .with_validator(min_length!(0, "At least 1 character"))
+                                    .prompt()
+                                    .context("Failed to get Name")?;
+                                if storages.iter().all(|(k, _v)| k != &name) {
+                                    break;
+                                }
+                                println!("The name {} is already used.", name);
+                            }
+                            let provider = Text::new("Provider:").prompt().context("Failed to get provider")?;
+                            let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
+                                .with_error_message("Please type number.")
+                                .prompt()
+                                .context("Failed to get capacity.")?;
+                            let alias = Text::new("Alias:").prompt().context("Failed to get provider")?;
+                            let storage = OnlineStorage::new(
+                                    name.clone(), provider, capacity, alias, path, &device,
+                                );
+                            (
+                                name,
+                                Storage::Online(storage),
+                            )
+                        }
                     };
 
                     // add to storages
@@ -328,26 +371,26 @@ fn main() -> Result<()> {
                 }
                 StorageCommands::Bind {
                     storage: storage_name,
+                    alias: new_alias,
+                    path: mount_point,
                 } => {
+                    let device = get_device(&config_dir)?;
                     // get storages
                     let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
                     let commit_comment = {
                         // find matching storage
-                        let storage = storages
+                        let storage = &mut storages
                             .get_mut(&storage_name)
                             .context(format!("No storage has name {}", storage_name))?;
-                        // get disk from sysinfo
-                        let mut sysinfo = sysinfo::System::new_all();
-                        sysinfo.refresh_disks();
-                        let disk = select_sysinfo_disk(&sysinfo)?;
-                        let system_name = disk
-                            .name()
-                            .to_str()
-                            .context("Failed to convert disk name to valid string")?;
-                        // add to storages
-                        storage.bind_device(disk, &config_dir)?;
-                        trace!("storage: {}", storage);
-                        format!("{} to {}", system_name, storage.name())
+                        let old_alias = storage
+                            .local_info(&device)
+                            .context(format!("Failed to get LocalInfo for {}", storage.name()))?
+                            .alias()
+                            .clone();
+                        // TODO: get mount path for directory automatically?
+                        storage.bound_on_device(new_alias, mount_point, &device)?;
+                        // trace!("storage: {}", &storage);
+                        format!("{} to {}", old_alias, storage.name())
                     };
                     trace!("bound new system name to the storage");
                     trace!("storages: {:#?}", storages);
