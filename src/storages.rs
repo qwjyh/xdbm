@@ -27,7 +27,25 @@ pub enum Storage {
     Online(OnlineStorage),
 }
 
-impl Storage {}
+impl Storage {
+    /// Full type name like "PhysicalStorage".
+    pub fn typename(&self) -> &str {
+        match self {
+            Self::PhysicalStorage(_) => "PhysicalStorage",
+            Self::SubDirectory(_) => "SubDirectory",
+            Self::Online(_) => "OnlineStorage",
+        }
+    }
+
+    /// Short type name with one letter like "P".
+    pub fn shorttypename(&self) -> &str {
+        match self {
+            Self::PhysicalStorage(_) => "P",
+            Self::SubDirectory(_) => "S",
+            Self::Online(_) => "O",
+        }
+    }
+}
 
 impl StorageExt for Storage {
     fn name(&self) -> &String {

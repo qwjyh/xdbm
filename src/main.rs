@@ -373,6 +373,7 @@ fn main() -> Result<()> {
                     for (k, storage) in &storages {
                         println!("{}: {}", k, storage);
                         println!("    {}", storage.mount_path(&device, &storages)?.display());
+                        // println!("{}: {}", storage.shorttypename(), storage.name()); // TODO
                     }
                 }
                 StorageCommands::Bind {
