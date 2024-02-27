@@ -12,24 +12,83 @@ extern crate log;
 extern crate dirs;
 
 use anyhow::{anyhow, Context, Result};
-use clap::{CommandFactory, Parser};
+use clap::error::ErrorKind;
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_verbosity_flag::Verbosity;
 use git2::{Commit, Oid, Repository};
 use inquire::{validator::Validation, Text};
 use serde_yaml;
 use std::collections::HashMap;
-use std::path::Path;
-
-use crate::cmd_options::{Cli, Commands, StorageCommands};
-use crate::devices::get_device;
-use crate::storages::{
-    get_storages, physical_drive_partition::*, write_storages, Storage, StorageExt, StorageType,
-    STORAGESFILE,
+use std::path::PathBuf;
+use std::{env, io::BufReader, path::Path};
+use std::{
+    ffi::OsString,
+    io::{self, BufWriter},
 };
-use devices::Device;
+use std::{fmt::Debug, fs::File};
+use std::{fs, io::prelude::*};
+use sysinfo::{Disk, DiskExt, SystemExt};
 
-mod cmd_init;
-mod cmd_options;
-mod cmd_storage;
+use crate::storages::{
+    directory::Directory, get_storages, local_info, online_storage, physical_drive_partition::*,
+    write_storages, Storage, StorageExt, StorageType, STORAGESFILE,
+};
+use devices::{Device, DEVICESFILE, *};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+
+    #[command(flatten)]
+    verbose: Verbosity,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Initialize for this device.
+    /// Provide `repo_url` to use existing repository, otherwise this device will be configured as the
+    /// first device.
+    Init {
+        repo_url: Option<String>, // url?
+    },
+
+    /// Manage storages.
+    Storage(StorageArgs),
+
+    /// Print config dir.
+    Path {},
+
+    /// Sync with git repo.
+    Sync {},
+}
+
+#[derive(clap::Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct StorageArgs {
+    #[command(subcommand)]
+    command: StorageCommands,
+}
+
+#[derive(Subcommand)]
+enum StorageCommands {
+    /// Add new storage.
+    Add {
+        #[arg(value_enum)]
+        storage_type: StorageType,
+
+        // TODO: set this require and select matching disk for physical
+        #[arg(short, long, value_name = "PATH")]
+        path: Option<PathBuf>,
+    },
+    /// List all storages.
+    List {},
+    /// Add new device-specific name to existing storage.
+    /// For physical disk, the name is taken from system info automatically.
+    Bind { storage: String },
+}
+
 mod devices;
 mod storages;
 
@@ -49,8 +108,204 @@ fn main() -> Result<()> {
     trace!("Config dir: {:?}", config_dir);
 
     match cli.command {
-        Commands::Init { repo_url } => cmd_init::cmd_init(repo_url, &config_dir)?,
-        Commands::Storage(storage) => cmd_storage::cmd_storage(storage, &config_dir)?,
+        Commands::Init { repo_url } => {
+            let is_first_device: bool;
+            // get repo or initialize it
+            let repo = match repo_url {
+                Some(repo_url) => {
+                    trace!("repo: {}", repo_url);
+                    let repo = Repository::clone(&repo_url, &config_dir)?;
+                    is_first_device = false;
+                    repo
+                }
+                None => {
+                    trace!("No repo provided");
+                    println!("Initializing for the first device...");
+
+                    // create repository
+                    let repo = Repository::init(&config_dir)?;
+
+                    // set up gitignore
+                    {
+                        let f = File::create(&config_dir.join(".gitignore"))?;
+                        {
+                            let mut buf = BufWriter::new(f);
+                            buf.write("devname".as_bytes())?;
+                        }
+                        add_and_commit(
+                            &repo,
+                            Path::new(".gitignore"),
+                            "Add devname to gitignore.",
+                        )?;
+                        full_status(&repo)?;
+                    }
+                    is_first_device = true;
+                    repo
+                }
+            };
+            full_status(&repo)?;
+
+            // set device name
+            let device = set_device_name()?;
+
+            // save devname
+            let devname_path = &config_dir.join("devname");
+            {
+                let f = File::create(devname_path)
+                    .context("Failed to create a file to store local device name")?;
+                let writer = BufWriter::new(f);
+                serde_yaml::to_writer(writer, &device.name()).unwrap();
+            };
+            full_status(&repo)?;
+
+            // Add new device to devices.yml
+            {
+                let mut devices: Vec<Device> = if is_first_device {
+                    vec![]
+                } else {
+                    get_devices(&config_dir)?
+                };
+                trace!("devices: {:?}", devices);
+                if devices.iter().any(|x| x.name() == device.name()) {
+                    return Err(anyhow!("device name is already used."));
+                }
+                devices.push(device.clone());
+                trace!("Devices: {:?}", devices);
+                write_devices(&config_dir, devices)?;
+            }
+            full_status(&repo)?;
+
+            // commit
+            add_and_commit(
+                &repo,
+                &Path::new(DEVICESFILE),
+                &format!("Add new devname: {}", &device.name()),
+            )?;
+            println!("Device added");
+            full_status(&repo)?;
+        }
+        Commands::Storage(storage) => {
+            let repo = Repository::open(&config_dir).context(
+                "Repository doesn't exist. Please run init to initialize the repository.",
+            )?;
+            trace!("repo state: {:?}", repo.state());
+            match storage.command {
+                StorageCommands::Add { storage_type, path } => {
+                    trace!("Storage Add {:?}, {:?}", storage_type, path);
+                    // Get storages
+                    // let mut storages: Vec<Storage> = get_storages(&config_dir)?;
+                    let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+                    trace!("found storages: {:?}", storages);
+
+                    let device = get_device(&config_dir)?;
+                    let (key, storage) = match storage_type {
+                        StorageType::Physical => {
+                            // select storage
+                            let (key, storage) = select_physical_storage(device, &storages)?;
+                            println!("storage: {}: {:?}", key, storage);
+                            (key, Storage::PhysicalStorage(storage))
+                        }
+                        StorageType::SubDirectory => {
+                            if storages.is_empty() {
+                                return Err(anyhow!("No storages found. Please add at least 1 physical storage first."));
+                            }
+                            let path = path.unwrap_or_else(|| {
+                                let mut cmd = Cli::command();
+                                cmd.error(
+                                    ErrorKind::MissingRequiredArgument,
+                                    "<PATH> is required with sub-directory",
+                                )
+                                .exit();
+                            });
+                            trace!("SubDirectory arguments: path: {:?}", path);
+                            // Nightly feature std::path::absolute
+                            let path = path.canonicalize()?;
+                            trace!("canonicalized: path: {:?}", path);
+
+                            let key_name = ask_unique_name(&storages, "sub-directory".to_string())?;
+                            let notes = Text::new("Notes for this sub-directory:").prompt()?;
+                            let storage = storages::directory::Directory::try_from_device_path(
+                                key_name.clone(),
+                                path,
+                                notes,
+                                &device,
+                                &storages,
+                            )?;
+                            (key_name, Storage::SubDirectory(storage))
+                        }
+                        StorageType::Online => todo!(),
+                    };
+
+                    // add to storages
+                    storages.insert(key.clone(), storage);
+                    trace!("updated storages: {:?}", storages);
+
+                    // write to file
+                    write_storages(&config_dir, storages)?;
+
+                    // commit
+                    add_and_commit(
+                        &repo,
+                        &Path::new(STORAGESFILE),
+                        &format!("Add new storage(physical drive): {}", key),
+                    )?;
+
+                    println!("Added new storage.");
+                    trace!("Finished adding storage");
+                }
+                StorageCommands::List {} => {
+                    // Get storages
+                    let storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+                    trace!("found storages: {:?}", storages);
+                    let device = get_device(&config_dir)?;
+                    for (k, storage) in &storages {
+                        println!("{}: {}", k, storage);
+                        println!("    {}", storage.mount_path(&device, &storages)?.display());
+                    }
+                }
+                StorageCommands::Bind {
+                    storage: storage_name,
+                } => {
+                    // get storages
+                    let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+                    let commit_comment = {
+                        // find matching storage
+                        let storage = storages
+                            .get_mut(&storage_name)
+                            .context(format!("No storage has name {}", storage_name))?;
+                        // get disk from sysinfo
+                        let mut sysinfo = sysinfo::System::new_all();
+                        sysinfo.refresh_disks();
+                        let disk = select_sysinfo_disk(&sysinfo)?;
+                        let system_name = disk
+                            .name()
+                            .to_str()
+                            .context("Failed to convert disk name to valid string")?;
+                        // add to storages
+                        storage.bind_device(disk, &config_dir)?;
+                        trace!("storage: {}", storage);
+                        format!("{} to {}", system_name, storage.name())
+                    };
+                    trace!("bound new system name to the storage");
+                    trace!("storages: {:#?}", storages);
+
+                    write_storages(&config_dir, storages)?;
+                    // commit
+                    add_and_commit(
+                        &repo,
+                        &Path::new(STORAGESFILE),
+                        &format!(
+                            "Bound new storage name to physical drive ({})",
+                            commit_comment
+                        ),
+                    )?;
+                    println!(
+                        "Bound new storage name to physical drive ({})",
+                        commit_comment
+                    );
+                }
+            }
+        }
         Commands::Path {} => {
             println!("{}", &config_dir.display());
         }
@@ -162,4 +417,10 @@ fn full_status(repo: &Repository) -> Result<()> {
         trace!("  {}: {:?}", path, st);
     }
     Ok(())
+}
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Cli::command().debug_assert()
 }
