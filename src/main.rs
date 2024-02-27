@@ -13,23 +13,20 @@ extern crate dirs;
 
 use anyhow::{anyhow, Context, Result};
 use clap::error::ErrorKind;
-use clap::{CommandFactory, Parser, Subcommand};
-use clap_verbosity_flag::Verbosity;
+use clap::{CommandFactory, Parser};
 use git2::{Commit, Oid, Repository};
 use inquire::{min_length, Confirm, CustomType, Select};
 use inquire::{validator::Validation, Text};
 use serde_yaml;
 use std::collections::HashMap;
+use std::io::{self, BufWriter};
 use std::path::{self, PathBuf};
 use std::{env, io::BufReader, path::Path};
-use std::{
-    ffi::OsString,
-    io::{self, BufWriter},
-};
 use std::{fmt::Debug, fs::File};
 use std::{fs, io::prelude::*};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
+use crate::cmd_args::{Cli, Commands, StorageArgs, StorageCommands};
 use crate::inquire_filepath_completer::FilePathCompleter;
 use crate::storages::online_storage::OnlineStorage;
 use crate::storages::{
@@ -38,72 +35,7 @@ use crate::storages::{
 };
 use devices::{Device, DEVICESFILE, *};
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-
-    #[command(flatten)]
-    verbose: Verbosity,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Initialize for this device.
-    /// Provide `repo_url` to use existing repository, otherwise this device will be configured as the
-    /// first device.
-    Init {
-        repo_url: Option<String>, // url?
-    },
-
-    /// Manage storages.
-    Storage(StorageArgs),
-
-    /// Print config dir.
-    Path {},
-
-    /// Sync with git repo.
-    Sync {},
-
-    /// Check config files.
-    Check {},
-}
-
-#[derive(clap::Args)]
-#[command(args_conflicts_with_subcommands = true)]
-struct StorageArgs {
-    #[command(subcommand)]
-    command: StorageCommands,
-}
-
-#[derive(Subcommand)]
-enum StorageCommands {
-    /// Add new storage.
-    Add {
-        #[arg(value_enum)]
-        storage_type: StorageType,
-
-        // TODO: set this require and select matching disk for physical
-        #[arg(short, long, value_name = "PATH")]
-        path: Option<PathBuf>,
-    },
-    /// List all storages.
-    List {},
-    /// Make `storage` available for the current device.
-    /// For physical disk, the name is taken from system info automatically.
-    Bind {
-        /// Name of the storage.
-        storage: String,
-        /// Device specific alias for the storage.
-        #[arg(short, long)]
-        alias: String,
-        /// Mount point on this device.
-        #[arg(short, long)]
-        path: path::PathBuf,
-    },
-}
-
+mod cmd_args;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
@@ -427,9 +359,10 @@ fn main() -> Result<()> {
         }
         Commands::Check {} => {
             println!("Config dir: {}", &config_dir.display());
-            let _storages = storages::get_storages(&config_dir).context("Failed to parse storages file.");
+            let _storages =
+                storages::get_storages(&config_dir).context("Failed to parse storages file.");
             todo!()
-        },
+        }
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
