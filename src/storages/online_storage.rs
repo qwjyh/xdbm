@@ -1,6 +1,6 @@
 //! Online storage which is not a children of any physical drive.
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,6 +9,7 @@ use std::path;
 
 use crate::devices;
 
+use super::local_info;
 use super::local_info::LocalInfo;
 use super::StorageExt;
 
@@ -16,13 +17,26 @@ use super::StorageExt;
 pub struct OnlineStorage {
     name: String,
     provider: String,
-    capacity: u8,
+    capacity: u64,
     local_info: HashMap<String, LocalInfo>,
 }
 
 impl OnlineStorage {
-    fn new(name: String, provider: String, capacity: u8, path: path::PathBuf, device: &devices::Device) -> OnlineStorage {
-        todo!()
+    pub fn new(
+        name: String,
+        provider: String,
+        capacity: u64,
+        alias: String,
+        path: path::PathBuf,
+        device: &devices::Device,
+    ) -> OnlineStorage {
+        let local_info = local_info::LocalInfo::new(alias, path);
+        OnlineStorage {
+            name,
+            provider,
+            capacity,
+            local_info: HashMap::from([(device.name(), local_info)]),
+        }
     }
 }
 
@@ -31,8 +45,8 @@ impl StorageExt for OnlineStorage {
         &self.name
     }
 
-    fn has_alias(&self, device: &devices::Device) -> bool {
-        self.local_info.get(&device.name()).is_some()
+    fn local_info(&self, device: &devices::Device) -> Option<&LocalInfo> {
+        self.local_info.get(&device.name())
     }
 
     fn mount_path(
@@ -45,6 +59,22 @@ impl StorageExt for OnlineStorage {
             .get(&device.name())
             .context(format!("LocalInfo for storage: {} not found", &self.name()))?
             .mount_path())
+    }
+
+    fn bound_on_device(
+        &mut self,
+        alias: String,
+        mount_point: path::PathBuf,
+        device: &devices::Device,
+    ) -> Result<()> {
+        match self
+            .local_info
+            .insert(device.name(), LocalInfo::new(alias, mount_point))
+        {
+            Some(old) => info!("Value replaced. Old value: {:?}", old),
+            None => info!("New value inserted."),
+        };
+        Ok(())
     }
 }
 
