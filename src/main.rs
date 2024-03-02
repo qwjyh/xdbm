@@ -13,7 +13,6 @@ extern crate log;
 extern crate dirs;
 
 use anyhow::{anyhow, Context, Result};
-use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
 use git2::{Commit, Oid, Repository};
 use inquire::{min_length, Confirm, CustomType, Select};
@@ -24,7 +23,6 @@ use std::path::Path;
 use std::path::{self, PathBuf};
 
 use crate::cmd_args::{Cli, Commands, StorageCommands};
-use crate::cmd_storage;
 use crate::storages::online_storage;
 use crate::storages::{
     directory, get_storages, local_info, physical_drive_partition, write_storages, Storage,
@@ -64,7 +62,7 @@ fn main() -> Result<()> {
                 StorageCommands::Add { storage_type, path } => {
                     cmd_storage::cmd_storage_add(storage_type, path, repo, &config_dir)?
                 }
-                StorageCommands::List {} => cmd_storage::cmd_storage_list(&config_dir)?,
+                StorageCommands::List { long } => cmd_storage::cmd_storage_list(&config_dir, long)?,
                 StorageCommands::Bind {
                     storage: storage_name,
                     alias: new_alias,

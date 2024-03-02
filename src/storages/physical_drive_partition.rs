@@ -1,13 +1,13 @@
 //! Manipulate partition of physical drive (both removable and unremovable).
 
 use crate::devices;
+use crate::devices::Device;
 use crate::storages::{Storage, StorageExt};
-use crate::{devices::Device, get_device};
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use inquire::Text;
 use serde::{Deserialize, Serialize};
-use std::path;
+use std::path::{self, PathBuf};
 use std::{
     collections::{hash_map::RandomState, HashMap},
     fmt,
@@ -25,7 +25,7 @@ pub struct PhysicalDrivePartition {
     fs: String,
     is_removable: bool,
     // system_names: HashMap<String, String>,
-    local_info: HashMap<String, LocalInfo>,
+    local_infos: HashMap<String, LocalInfo>,
 }
 
 impl PhysicalDrivePartition {
@@ -44,7 +44,7 @@ impl PhysicalDrivePartition {
             capacity,
             fs,
             is_removable,
-            local_info: HashMap::from([(device.name(), local_info)]),
+            local_infos: HashMap::from([(device.name(), local_info)]),
         }
     }
 
@@ -70,7 +70,7 @@ impl PhysicalDrivePartition {
             fs: fs.to_string(),
             is_removable: disk.is_removable(),
             // system_names: HashMap::from([(device.name(), alias)]),
-            local_info: HashMap::from([(device.name(), local_info)]),
+            local_infos: HashMap::from([(device.name(), local_info)]),
         })
     }
 
@@ -79,13 +79,13 @@ impl PhysicalDrivePartition {
         disk: &sysinfo::Disk,
         config_dir: &std::path::PathBuf,
     ) -> Result<()> {
-        let device = get_device(&config_dir)?;
+        let device = devices::get_device(&config_dir)?;
         let alias = match disk.name().to_str() {
             Some(s) => s.to_string(),
             None => return Err(anyhow!("Failed to convert storage name to valid str.")),
         };
         let new_local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
-        let aliases = &mut self.local_info;
+        let aliases = &mut self.local_infos;
         trace!("aliases: {:?}", aliases);
         match aliases.insert(device.name(), new_local_info) {
             Some(v) => println!("Value updated. old val is: {:?}", v),
@@ -94,6 +94,38 @@ impl PhysicalDrivePartition {
         trace!("aliases: {:?}", aliases);
         Ok(())
     }
+
+    pub fn is_removable(&self) -> bool {
+        self.is_removable
+    }
+
+    pub fn kind(&self) -> &String {
+        &self.kind
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{devices::Device, storages::{local_info::LocalInfo, StorageExt}};
+    use std::path::PathBuf;
+
+    use super::PhysicalDrivePartition;
+
+    #[test]
+    fn test_new() {
+        let localinfo = LocalInfo::new("alias".to_string(), PathBuf::from("/mnt/sample"));
+        let storage = PhysicalDrivePartition::new(
+            "name".to_string(),
+            "SSD".to_string(),
+            100,
+            "ext_4".to_string(),
+            true,
+            localinfo,
+            &Device::new("test_device".to_string()),
+        );
+        assert_eq!(storage.name(), "name");
+        assert_eq!(storage.capacity(), Some(100));
+    }
 }
 
 impl StorageExt for PhysicalDrivePartition {
@@ -101,8 +133,12 @@ impl StorageExt for PhysicalDrivePartition {
         &self.name
     }
 
+    fn capacity(&self) -> Option<u64> {
+        Some(self.capacity)
+    }
+
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo> {
-        self.local_info.get(&device.name())
+        self.local_infos.get(&device.name())
     }
 
     fn mount_path(
@@ -111,7 +147,7 @@ impl StorageExt for PhysicalDrivePartition {
         _: &HashMap<String, Storage>,
     ) -> Result<path::PathBuf> {
         Ok(self
-            .local_info
+            .local_infos
             .get(&device.name())
             .context(format!("LocalInfo for storage: {} not found", &self.name()))?
             .mount_path())
@@ -124,7 +160,7 @@ impl StorageExt for PhysicalDrivePartition {
         device: &devices::Device,
     ) -> Result<()> {
         match self
-            .local_info
+            .local_infos
             .insert(device.name(), LocalInfo::new(alias, mount_point))
         {
             Some(old) => info!("Value replaced. Old value: {:?}", old),
@@ -139,7 +175,7 @@ impl fmt::Display for PhysicalDrivePartition {
         let removable_indicator = if self.is_removable { "+" } else { "-" };
         write!(
             f,
-            "P {name:<10} {size}  {removable:<1} {kind:<6} {fs:<5}",
+            "P {name:<10} {size:<10}  {removable:<1} {kind:<6} {fs:<5}",
             name = self.name(),
             size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
             removable = removable_indicator,

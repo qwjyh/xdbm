@@ -9,16 +9,17 @@ use std::path;
 
 use crate::devices;
 
-use super::local_info;
-use super::local_info::LocalInfo;
-use super::StorageExt;
+use super::{
+    local_info::{self, LocalInfo},
+    StorageExt,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OnlineStorage {
     name: String,
-    provider: String,
+    pub provider: String,
     capacity: u64,
-    local_info: HashMap<String, LocalInfo>,
+    local_infos: HashMap<String, LocalInfo>,
 }
 
 impl OnlineStorage {
@@ -35,7 +36,7 @@ impl OnlineStorage {
             name,
             provider,
             capacity,
-            local_info: HashMap::from([(device.name(), local_info)]),
+            local_infos: HashMap::from([(device.name(), local_info)]),
         }
     }
 }
@@ -45,17 +46,21 @@ impl StorageExt for OnlineStorage {
         &self.name
     }
 
+    fn capacity(&self) -> Option<u64> {
+        Some(self.capacity)
+    }
+
     fn local_info(&self, device: &devices::Device) -> Option<&LocalInfo> {
-        self.local_info.get(&device.name())
+        self.local_infos.get(&device.name())
     }
 
     fn mount_path(
         &self,
         device: &devices::Device,
         _storages: &HashMap<String, super::Storage>,
-    ) -> anyhow::Result<std::path::PathBuf> {
+    ) -> Result<std::path::PathBuf> {
         Ok(self
-            .local_info
+            .local_infos
             .get(&device.name())
             .context(format!("LocalInfo for storage: {} not found", &self.name()))?
             .mount_path())
@@ -68,7 +73,7 @@ impl StorageExt for OnlineStorage {
         device: &devices::Device,
     ) -> Result<()> {
         match self
-            .local_info
+            .local_infos
             .insert(device.name(), LocalInfo::new(alias, mount_point))
         {
             Some(old) => info!("Value replaced. Old value: {:?}", old),
@@ -82,7 +87,7 @@ impl fmt::Display for OnlineStorage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "O {name:<10} {size}    {provider:<10}",
+            "O {name:<10} {size:<10}    {provider:<10}",
             name = self.name(),
             size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
             provider = self.provider,

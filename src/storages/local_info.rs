@@ -1,7 +1,7 @@
 //! Device specific common data for storages.
 
 use serde::{Deserialize, Serialize};
-use std::path;
+use std::path::{self, PathBuf};
 
 /// Store local (device-specific) information
 ///
@@ -25,4 +25,11 @@ impl LocalInfo {
     pub fn mount_path(&self) -> path::PathBuf {
         self.mount_path.clone()
     }
+}
+
+#[test]
+fn localinfo() {
+    let localinfo = LocalInfo::new("alias".to_string(), PathBuf::from("/mnt/sample"));
+    assert_eq!(localinfo.alias(), "alias".to_string());
+    assert_eq!(localinfo.mount_path(), PathBuf::from("/mnt/sample"));
 }

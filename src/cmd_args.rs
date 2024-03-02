@@ -57,7 +57,11 @@ pub(crate) enum StorageCommands {
         path: Option<PathBuf>,
     },
     /// List all storages.
-    List {},
+    List {
+        /// Show note on the storages.
+        #[arg(short, long)]
+        long: bool,
+    },
     /// Make `storage` available for the current device.
     /// For physical disk, the name is taken from system info automatically.
     Bind {

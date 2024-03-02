@@ -14,8 +14,8 @@ pub struct Directory {
     name: String,
     parent: String,
     relative_path: path::PathBuf,
-    notes: String,
-    local_info: HashMap<String, LocalInfo>,
+    pub notes: String,
+    local_infos: HashMap<String, LocalInfo>,
 }
 
 impl Directory {
@@ -28,14 +28,14 @@ impl Directory {
         parent: String,
         relative_path: path::PathBuf,
         notes: String,
-        local_info: HashMap<String, LocalInfo>,
+        local_infos: HashMap<String, LocalInfo>,
     ) -> Directory {
         Directory {
             name,
             parent,
             relative_path,
             notes,
-            local_info,
+            local_infos,
         }
     }
 
@@ -80,12 +80,12 @@ impl Directory {
             self.parent,
             self.relative_path,
             notes,
-            self.local_info,
+            self.local_infos,
         )
     }
 
     /// Get parent `&Storage` of directory.
-    fn parent<'a>(&'a self, storages: &'a HashMap<String, Storage>) -> Result<&Storage> {
+    pub fn parent<'a>(&'a self, storages: &'a HashMap<String, Storage>) -> Result<&Storage> {
         let parent = &self.parent;
         storages.get(parent).context(format!(
             "No parent {} exists for directory {}",
@@ -111,8 +111,12 @@ impl StorageExt for Directory {
         &self.name
     }
 
+    fn capacity(&self) -> Option<u64> {
+        None
+    }
+
     fn local_info(&self, device: &devices::Device) -> Option<&LocalInfo> {
-        self.local_info.get(&device.name())
+        self.local_infos.get(&device.name())
     }
 
     fn mount_path(
@@ -131,7 +135,7 @@ impl StorageExt for Directory {
         device: &devices::Device,
     ) -> Result<()> {
         let new_local_info = LocalInfo::new(alias, mount_point);
-        match self.local_info.insert(device.name(), new_local_info) {
+        match self.local_infos.insert(device.name(), new_local_info) {
             Some(v) => println!("Value updated. old val is: {:?}", v),
             None => println!("inserted new val"),
         };
@@ -149,5 +153,66 @@ impl fmt::Display for Directory {
             relative_path = self.relative_path.display(),
             notes = self.notes,
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{collections::HashMap, path::PathBuf};
+
+    use crate::{
+        devices::Device,
+        storages::{
+            self, local_info::LocalInfo, physical_drive_partition::PhysicalDrivePartition, Storage,
+            StorageExt,
+        },
+    };
+
+    use super::Directory;
+
+    #[test]
+    fn name() {
+        let local_info_phys =
+            LocalInfo::new("phys_alias".to_string(), PathBuf::from("/mnt/sample"));
+        let local_info_dir =
+            LocalInfo::new("dir_alias".to_string(), PathBuf::from("/mnt/sample/subdir"));
+        let device = Device::new("test_device".to_string());
+        let mut local_infos = HashMap::new();
+        local_infos.insert(device.name(), local_info_dir);
+        let physical = PhysicalDrivePartition::new(
+            "parent".to_string(),
+            "SSD".to_string(),
+            1_000_000_000,
+            "btrfs".to_string(),
+            false,
+            local_info_phys,
+            &device,
+        );
+        let directory = Directory::new(
+            "test_name".to_owned(),
+            "parent".to_string(),
+            "subdir".into(),
+            "some note".to_string(),
+            local_infos,
+        );
+        let mut storages: HashMap<String, Storage> = HashMap::new();
+        storages.insert(
+            physical.name().to_string(),
+            Storage::PhysicalStorage(physical),
+        );
+        storages.insert(
+            directory.name().to_string(),
+            Storage::SubDirectory(directory),
+        );
+        // assert_eq!(directory.name(), "test_name");
+        assert_eq!(storages.get("test_name").unwrap().name(), "test_name");
+        assert_eq!(
+            storages
+                .get("test_name")
+                .unwrap()
+                .mount_path(&device, &storages)
+                .unwrap(),
+            PathBuf::from("/mnt/sample/subdir")
+        );
     }
 }

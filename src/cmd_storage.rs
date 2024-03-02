@@ -2,22 +2,24 @@
 
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    io::{self, Write},
+    path::{Path, PathBuf}, string,
 };
 
 use anyhow::{anyhow, Context, Result};
+use byte_unit::Byte;
 use clap::{error::ErrorKind, CommandFactory};
 use git2::Repository;
 use inquire::{min_length, Confirm, CustomType, Select, Text};
+use unicode_width::{self, UnicodeWidthStr};
 
 use crate::{
     add_and_commit, ask_unique_name,
     cmd_args::Cli,
-    get_device,
+    devices::{self, Device},
     inquire_filepath_completer::FilePathCompleter,
     storages::{
-        self, directory, get_storages, local_info, physical_drive_partition, Storage, StorageExt,
-        StorageType,
+        self, directory, local_info, physical_drive_partition, Storage, StorageExt, StorageType,
     },
 };
 
@@ -30,10 +32,10 @@ pub(crate) fn cmd_storage_add(
     trace!("Storage Add {:?}, {:?}", storage_type, path);
     // Get storages
     // let mut storages: Vec<Storage> = get_storages(&config_dir)?;
-    let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+    let mut storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
     trace!("found storages: {:?}", storages);
 
-    let device = get_device(&config_dir)?;
+    let device = devices::get_device(&config_dir)?;
     let (key, storage) = match storage_type {
         StorageType::Physical => {
             let use_sysinfo = {
@@ -110,6 +112,7 @@ pub(crate) fn cmd_storage_add(
             }
             let path = path.unwrap_or_else(|| {
                 let mut cmd = Cli::command();
+                // TODO: weired def of cmd argument
                 cmd.error(
                     ErrorKind::MissingRequiredArgument,
                     "<PATH> is required with sub-directory",
@@ -193,15 +196,88 @@ pub(crate) fn cmd_storage_add(
     Ok(())
 }
 
-pub(crate) fn cmd_storage_list(config_dir: &PathBuf) -> Result<()> {
+pub(crate) fn cmd_storage_list(config_dir: &PathBuf, with_note: bool) -> Result<()> {
     // Get storages
-    let storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+    let storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
     trace!("found storages: {:?}", storages);
-    let device = get_device(&config_dir)?;
-    for (k, storage) in &storages {
-        println!("{}: {}", k, storage);
-        println!("    {}", storage.mount_path(&device, &storages)?.display());
-        // println!("{}: {}", storage.shorttypename(), storage.name()); // TODO
+    let device = devices::get_device(&config_dir)?;
+    let mut stdout = io::BufWriter::new(io::stdout());
+    write_storages_list(&mut stdout, &storages, &device, with_note)?;
+    stdout.flush()?;
+    Ok(())
+}
+
+fn write_storages_list(
+    mut writer: impl io::Write,
+    storages: &HashMap<String, Storage>,
+    device: &Device,
+    long_display: bool,
+) -> Result<()> {
+    let name_width = storages
+        .iter()
+        .map(|(_k, v)| v.name().width())
+        .max()
+        .unwrap();
+    trace!("name widths: {}", name_width);
+    for (_k, storage) in storages {
+        let size_str = match storage.capacity() {
+            Some(b) => Byte::from_bytes(b.into())
+                .get_appropriate_unit(true)
+                .format(0)
+                .to_string(),
+            None => "".to_string(),
+        };
+        let isremovable = if let Storage::PhysicalStorage(s) = storage {
+            if s.is_removable() {
+                "+"
+            } else {
+                "-"
+            }
+        } else {
+            " "
+        };
+        let path = storage.mount_path(&device, &storages).map_or_else(
+            |e| {
+                info!("Not found: {}", e);
+                "".to_string()
+            },
+            |v| v.display().to_string(),
+        );
+        let parent_name = if let Storage::SubDirectory(s) = storage {
+            s.parent(&storages)
+                .context(format!("Failed to get parent of storage {}", s))?
+                .name()
+        } else {
+            ""
+        };
+        writeln!(
+            writer,
+            "{stype}{isremovable}: {name:<name_width$} {size:>8} {parent:<name_width$} {path}",
+            stype = storage.shorttypename(),
+            isremovable = isremovable,
+            name = storage.name(),
+            size = size_str,
+            parent = parent_name,
+            path = path,
+        )?;
+        if long_display {
+            let note = match storage {
+                Storage::PhysicalStorage(s) => {
+                    s.kind()
+                },
+                Storage::SubDirectory(s) => {
+                    &s.notes
+                },
+                Storage::Online(s) => {
+                    &s.provider
+                },
+            };
+            writeln!(
+                writer,
+                "    {}",
+                note
+            )?;
+        }
     }
     Ok(())
 }
@@ -213,9 +289,9 @@ pub(crate) fn cmd_storage_bind(
     repo: Repository,
     config_dir: &PathBuf,
 ) -> Result<()> {
-    let device = get_device(&config_dir)?;
+    let device = devices::get_device(&config_dir)?;
     // get storages
-    let mut storages: HashMap<String, Storage> = get_storages(&config_dir)?;
+    let mut storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
     let commit_comment = {
         // find matching storage
         let storage = &mut storages

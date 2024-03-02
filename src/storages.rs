@@ -7,7 +7,7 @@ use crate::storages::physical_drive_partition::PhysicalDrivePartition;
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ffi, fmt, fs, io, path};
+use std::{collections::HashMap, ffi, fmt, fs, io, path, u64};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -88,6 +88,14 @@ impl StorageExt for Storage {
             Storage::Online(s) => s.bound_on_device(alias, mount_point, device),
         }
     }
+
+    fn capacity(&self) -> Option<u64> {
+        match self {
+            Storage::PhysicalStorage(s) => s.capacity(),
+            Storage::SubDirectory(s) => s.capacity(),
+            Storage::Online(s) => s.capacity(),
+        }
+    }
 }
 
 impl fmt::Display for Storage {
@@ -104,6 +112,10 @@ impl fmt::Display for Storage {
 pub trait StorageExt {
     fn name(&self) -> &String;
 
+    /// Capacity in bytes.
+    /// Since [Directory] has no capacity information, it has `None`.
+    fn capacity(&self) -> Option<u64>;
+
     /// Return `true` if `self` has local info on the `device`.
     /// Used to check if the storage is bound on the `device`.
     fn has_alias(&self, device: &devices::Device) -> bool {
@@ -114,6 +126,7 @@ pub trait StorageExt {
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo>;
 
     /// Get mount path of `self` on `device`.
+    /// `storages` is a `HashMap` with key of storage name and value of the storage.
     fn mount_path(
         &self,
         device: &devices::Device,
