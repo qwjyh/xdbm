@@ -46,16 +46,21 @@ fn main() -> Result<()> {
         .init();
     trace!("Start logging...");
 
-    let mut config_dir: std::path::PathBuf =
-        dirs::config_local_dir().context("Failed to get config dir.")?;
-    config_dir.push("xdbm");
+    let config_dir: std::path::PathBuf = match cli.config_dir {
+        Some(path) => path,
+        None => {
+            let mut config_dir = dirs::config_local_dir().context("Failed to get default config dir.")?;
+            config_dir.push("xdbm");
+            config_dir
+        }
+    };
     trace!("Config dir: {:?}", config_dir);
 
     match cli.command {
         Commands::Init { repo_url } => cmd_init::cmd_init(repo_url, &config_dir)?,
         Commands::Storage(storage) => {
             let repo = Repository::open(&config_dir).context(
-                "Repository doesn't exist. Please run init to initialize the repository.",
+                "Repository doesn't exist on the config path. Please run init to initialize the repository.",
             )?;
             trace!("repo state: {:?}", repo.state());
             match storage.command {

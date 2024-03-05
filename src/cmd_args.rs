@@ -12,6 +12,10 @@ pub(crate) struct Cli {
     #[command(subcommand)]
     pub(crate) command: Commands,
 
+    /// Customized config dir.
+    #[arg(short, long)]
+    pub(crate) config_dir: Option<PathBuf>,
+
     #[command(flatten)]
     pub(crate) verbose: Verbosity,
 }
