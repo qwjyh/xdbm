@@ -45,11 +45,13 @@ fn main() -> Result<()> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
     trace!("Start logging...");
+    trace!("args: {:?}", cli);
 
     let config_dir: std::path::PathBuf = match cli.config_dir {
         Some(path) => path,
         None => {
-            let mut config_dir = dirs::config_local_dir().context("Failed to get default config dir.")?;
+            let mut config_dir =
+                dirs::config_local_dir().context("Failed to get default config dir.")?;
             config_dir.push("xdbm");
             config_dir
         }
@@ -57,7 +59,12 @@ fn main() -> Result<()> {
     trace!("Config dir: {:?}", config_dir);
 
     match cli.command {
-        Commands::Init { repo_url } => cmd_init::cmd_init(repo_url, &config_dir)?,
+        Commands::Init {
+            device_name,
+            repo_url,
+            use_sshagent,
+            ssh_key,
+        } => cmd_init::cmd_init(device_name, repo_url, use_sshagent, ssh_key, &config_dir)?,
         Commands::Storage(storage) => {
             let repo = Repository::open(&config_dir).context(
                 "Repository doesn't exist on the config path. Please run init to initialize the repository.",
@@ -96,38 +103,6 @@ fn main() -> Result<()> {
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
-}
-
-/// Set device name interactively.
-fn set_device_name() -> Result<Device> {
-    let validator = |input: &str| {
-        if input.chars().count() == 0 {
-            Ok(Validation::Invalid("Need at least 1 character.".into()))
-        } else {
-            Ok(Validation::Valid)
-        }
-    };
-
-    let device_name = Text::new("Provide name for this device:")
-        .with_validator(validator)
-        .prompt();
-
-    let device_name = match device_name {
-        Ok(device_name) => {
-            println!("device name: {}", device_name);
-            device_name
-        }
-        Err(err) => {
-            println!("Error {}", err);
-            return Err(anyhow!(err));
-        }
-    };
-
-    let device = Device::new(device_name);
-    trace!("Device information: {:?}", device);
-    trace!("Serialized: \n{}", serde_yaml::to_string(&device).unwrap());
-
-    return Ok(device);
 }
 
 fn ask_unique_name(storages: &HashMap<String, Storage>, target: String) -> Result<String> {

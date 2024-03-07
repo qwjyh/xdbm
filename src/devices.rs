@@ -87,7 +87,8 @@ pub fn get_device(config_dir: &Path) -> Result<Device> {
 /// Get `Vec<Device>` from yaml file in `config_dir`.
 pub fn get_devices(config_dir: &Path) -> Result<Vec<Device>> {
     trace!("get_devices");
-    let f = File::open(config_dir.join(DEVICESFILE))?;
+    let f =
+        File::open(config_dir.join(DEVICESFILE)).context(format!("{} not found", DEVICESFILE))?;
     let reader = BufReader::new(f);
     let yaml: Vec<Device> =
         serde_yaml::from_reader(reader).context("Failed to parse devices.yml")?;

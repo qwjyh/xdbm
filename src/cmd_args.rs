@@ -6,7 +6,7 @@ use crate::PathBuf;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Cli {
     #[command(subcommand)]
@@ -20,13 +20,21 @@ pub(crate) struct Cli {
     pub(crate) verbose: Verbosity,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
     /// Initialize for this device.
-    /// Provide `repo_url` to use existing repository, otherwise this device will be configured as the
-    /// first device.
     Init {
+        /// Name for this device
+        device_name: String,
+        /// Url for existing repository. Empty if init for the first time.
+        #[arg(short, long)]
         repo_url: Option<String>, // url?
+        /// Whether to use ssh-agent
+        #[arg(long)]
+        use_sshagent: bool,
+        /// Manually specify ssh key
+        #[arg(long)]
+        ssh_key: Option<PathBuf>,
     },
 
     /// Manage storages.
@@ -42,14 +50,14 @@ pub(crate) enum Commands {
     Check {},
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug)]
 #[command(args_conflicts_with_subcommands = true)]
 pub(crate) struct StorageArgs {
     #[command(subcommand)]
     pub(crate) command: StorageCommands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum StorageCommands {
     /// Add new storage.
     Add {
