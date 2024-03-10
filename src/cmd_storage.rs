@@ -33,7 +33,6 @@ pub(crate) fn cmd_storage_add(
 ) -> Result<()> {
     trace!("Storage Add {:?}, {:?}", storage_type, path);
     // Get storages
-    // let mut storages: Vec<Storage> = get_storages(&config_dir)?;
     let mut storages = Storages::read(&config_dir)?;
     trace!("found storages: {:?}", storages);
 
@@ -109,7 +108,7 @@ pub(crate) fn cmd_storage_add(
         StorageType::S => {
             if storages.list.is_empty() {
                 return Err(anyhow!(
-                    "No storages found. Please add at least 1 physical storage first."
+                    "No storages found. Please add at least 1 physical/online storage first to add sub directory."
                 ));
             }
             let path = path.unwrap_or_else(|| {
@@ -325,7 +324,7 @@ fn ask_unique_name(storages: &Storages, target: String) -> Result<String> {
     let mut disk_name = String::new();
     loop {
         disk_name = Text::new(format!("Name for {}:", target).as_str()).prompt()?;
-        if storages.list.iter().all(|(k, v)| k != &disk_name) {
+        if storages.list.iter().all(|(k, _v)| k != &disk_name) {
             break;
         }
         println!("The name {} is already used.", disk_name);

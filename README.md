@@ -1,10 +1,10 @@
 # TODO:
 - [x] split subcommands to functions
-- [ ] write test for init subcommand
+- [x] write test for init subcommand
   - [ ] write test with existing repo
-  - [ ] with ssh credential
-    - [ ] ssh-agent
-    - [ ] specify key
+  - [x] with ssh credential
+    - [x] ssh-agent
+    - [x] specify key
 - [ ] add storage remove command
 - [ ] add sync subcommand
 - [ ] add check subcommand

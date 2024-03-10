@@ -18,16 +18,15 @@ use git2::{Commit, Oid, Repository};
 use inquire::{min_length, Confirm, CustomType, Select};
 use inquire::{validator::Validation, Text};
 use serde_yaml;
-use storages::Storages;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::{self, PathBuf};
+use storages::Storages;
 
 use crate::cmd_args::{Cli, Commands, StorageCommands};
 use crate::storages::online_storage;
 use crate::storages::{
-    directory, local_info, physical_drive_partition, Storage,
-    StorageExt, StorageType, STORAGESFILE,
+    directory, local_info, physical_drive_partition, Storage, StorageExt, StorageType, STORAGESFILE,
 };
 use devices::{Device, DEVICESFILE, *};
 
@@ -97,8 +96,7 @@ fn main() -> Result<()> {
         }
         Commands::Check {} => {
             println!("Config dir: {}", &config_dir.display());
-            let _storages =
-                Storages::read(&config_dir)?;
+            let _storages = Storages::read(&config_dir)?;
             todo!()
         }
     }

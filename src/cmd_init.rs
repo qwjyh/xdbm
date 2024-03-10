@@ -1,6 +1,7 @@
 //! Init subcommand.
 //! Initialize xdbm for the device.
 
+use crate::storages::{Storages, STORAGESFILE};
 use crate::{add_and_commit, full_status, get_devices, write_devices, Device, DEVICESFILE};
 use anyhow::{anyhow, Context, Ok, Result};
 use core::panic;
@@ -81,11 +82,11 @@ pub(crate) fn cmd_init(
         return Err(anyhow!("Device name is empty"));
     }
     // get repo or initialize it
-    let (is_first_device, repo) = match repo_url {
+    let repo = match repo_url {
         Some(repo_url) => {
             trace!("repo: {}", repo_url);
             let repo = clone_repo(&repo_url, use_sshagent, ssh_key, config_dir)?;
-            (false, repo)
+            repo
         }
         None => {
             trace!("No repo provided");
@@ -104,7 +105,26 @@ pub(crate) fn cmd_init(
                 add_and_commit(&repo, Path::new(".gitignore"), "Add devname to gitignore.")?;
                 full_status(&repo)?;
             }
-            (true, repo)
+
+            // TDOO: wrap up below into one commit?
+            // set up devices.yml
+            let devices: Vec<Device> = vec![];
+            write_devices(&config_dir, devices)?;
+            add_and_commit(
+                &repo,
+                Path::new(DEVICESFILE),
+                &format!("Initialize {}", DEVICESFILE),
+            )?;
+            // set up storages.yml
+            let storages = Storages::new();
+            storages.write(&config_dir)?;
+            add_and_commit(
+                &repo,
+                Path::new(STORAGESFILE),
+                &format!("Initialize {}", STORAGESFILE),
+            )?;
+
+            repo
         }
     };
     full_status(&repo)?;
@@ -126,11 +146,7 @@ pub(crate) fn cmd_init(
 
     // Add new device to devices.yml
     {
-        let mut devices: Vec<Device> = if is_first_device {
-            vec![]
-        } else {
-            get_devices(&config_dir)?
-        };
+        let mut devices: Vec<Device> = get_devices(&config_dir)?;
         trace!("devices: {:?}", devices);
         if devices.iter().any(|x| x.name() == device.name()) {
             return Err(anyhow!("device name is already used."));
@@ -145,7 +161,7 @@ pub(crate) fn cmd_init(
     add_and_commit(
         &repo,
         &Path::new(DEVICESFILE),
-        &format!("Add new devname: {}", &device.name()),
+        &format!("Add new device: {}", &device.name()),
     )?;
     println!("Device added");
     full_status(&repo)?;

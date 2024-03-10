@@ -225,8 +225,8 @@ impl Storages {
     pub fn read(config_dir: &path::Path) -> Result<Self> {
         let storages_file = config_dir.join(STORAGESFILE);
         if !storages_file.exists() {
-            trace!("No storages file found. Returning new `Storages` object.");
-            return Ok(Storages::new());
+            warn!("No storages file found.");
+            return Err(anyhow!("Couln't find {}", STORAGESFILE))
         }
         trace!("Reading {:?}", storages_file);
         let f = fs::File::open(storages_file)?;
@@ -242,37 +242,3 @@ impl Storages {
         serde_yaml::to_writer(writer, &self).context(format!("Failed to writing to {:?}", STORAGESFILE))
     }
 }
-
-// /// Get `HashMap<String, Storage>` from devices.yml([devices::DEVICESFILE]).
-// /// If [devices::DEVICESFILE] isn't found, return empty vec.
-// pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>> {
-//     if let Some(storages_file) = fs::read_dir(&config_dir)?
-//         .filter(|f| {
-//             f.as_ref().map_or_else(
-//                 |_e| false,
-//                 |f| {
-//                     let storagesfile: ffi::OsString = STORAGESFILE.into();
-//                     f.path().file_name() == Some(&storagesfile)
-//                 },
-//             )
-//         })
-//         .next()
-//     {
-//         trace!("{} found: {:?}", STORAGESFILE, storages_file);
-//         let f = fs::File::open(config_dir.join(STORAGESFILE))?;
-//         let reader = io::BufReader::new(f);
-//         let yaml: HashMap<String, Storage> =
-//             serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
-//         Ok(yaml)
-//     } else {
-//         trace!("No {} found", STORAGESFILE);
-//         Ok(HashMap::new())
-//     }
-// }
-//
-// /// Write `storages` to yaml file in `config_dir`.
-// pub fn write_storages(config_dir: &path::Path, storages: HashMap<String, Storage>) -> Result<()> {
-//     let f = fs::File::create(config_dir.join(STORAGESFILE))?;
-//     let writer = io::BufWriter::new(f);
-//     serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))
-// }
