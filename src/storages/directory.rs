@@ -2,11 +2,15 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, path};
+use std::{
+    collections::HashMap,
+    fmt::{self, format},
+    path,
+};
 
 use crate::devices;
 
-use super::{local_info::LocalInfo, Storage, StorageExt};
+use super::{local_info::LocalInfo, Storage, StorageExt, Storages};
 
 /// Subdirectory of other [Storage]s.
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,9 +48,10 @@ impl Directory {
         path: path::PathBuf,
         notes: String,
         device: &devices::Device,
-        storages: &HashMap<String, Storage>,
+        storages: &Storages,
     ) -> Result<Directory> {
         let (parent_name, diff_path) = storages
+            .list
             .iter()
             .filter(|(_k, v)| v.has_alias(&device))
             .filter_map(|(k, v)| {
@@ -84,24 +89,12 @@ impl Directory {
         )
     }
 
-    /// Get parent `&Storage` of directory.
-    pub fn parent<'a>(&'a self, storages: &'a HashMap<String, Storage>) -> Result<&Storage> {
-        let parent = &self.parent;
-        storages.get(parent).context(format!(
-            "No parent {} exists for directory {}",
-            parent,
-            self.name()
-        ))
-    }
-
     /// Resolve mount path of directory with current device.
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &HashMap<String, Storage>,
-    ) -> Result<path::PathBuf> {
-        let parent = self.parent(&storages)?;
-        let parent_mount_path = parent.mount_path(&device, &storages)?;
+    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
+        let parent_mount_path = self
+            .parent(&storages)?
+            .context("Can't find parent storage")?
+            .mount_path(&device, &storages)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
     }
 }
@@ -122,7 +115,7 @@ impl StorageExt for Directory {
     fn mount_path(
         &self,
         device: &devices::Device,
-        storages: &HashMap<String, Storage>,
+        storages: &Storages,
     ) -> Result<path::PathBuf> {
         Ok(self.mount_path(device, storages)?)
     }
@@ -140,6 +133,17 @@ impl StorageExt for Directory {
             None => println!("inserted new val"),
         };
         Ok(())
+    }
+
+    // Get parent `&Storage` of directory.
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>> {
+        match storages.get(&self.parent).context(format!(
+            "No parent {} exists for directory {}",
+            &self.parent, &self.name
+        )) {
+            Ok(s) => Ok(Some(s)),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 }
 
@@ -164,7 +168,7 @@ mod test {
         devices::Device,
         storages::{
             self, local_info::LocalInfo, physical_drive_partition::PhysicalDrivePartition, Storage,
-            StorageExt,
+            StorageExt, Storages,
         },
     };
 
@@ -195,20 +199,14 @@ mod test {
             "some note".to_string(),
             local_infos,
         );
-        let mut storages: HashMap<String, Storage> = HashMap::new();
-        storages.insert(
-            physical.name().to_string(),
-            Storage::PhysicalStorage(physical),
-        );
-        storages.insert(
-            directory.name().to_string(),
-            Storage::SubDirectory(directory),
-        );
+        let mut storages = Storages::new();
+        storages.add(storages::Storage::PhysicalStorage(physical)).unwrap();
+        storages.add(Storage::SubDirectory(directory)).unwrap();
         // assert_eq!(directory.name(), "test_name");
-        assert_eq!(storages.get("test_name").unwrap().name(), "test_name");
+        assert_eq!(storages.get(&"test_name".to_string()).unwrap().name(), "test_name");
         assert_eq!(
             storages
-                .get("test_name")
+                .get(&"test_name".to_string())
                 .unwrap()
                 .mount_path(&device, &storages)
                 .unwrap(),

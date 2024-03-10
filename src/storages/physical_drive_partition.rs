@@ -2,7 +2,7 @@
 
 use crate::devices;
 use crate::devices::Device;
-use crate::storages::{Storage, StorageExt};
+use crate::storages::{Storage, StorageExt, Storages};
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use inquire::Text;
@@ -106,7 +106,10 @@ impl PhysicalDrivePartition {
 
 #[cfg(test)]
 mod test {
-    use crate::{devices::Device, storages::{local_info::LocalInfo, StorageExt}};
+    use crate::{
+        devices::Device,
+        storages::{local_info::LocalInfo, StorageExt},
+    };
     use std::path::PathBuf;
 
     use super::PhysicalDrivePartition;
@@ -141,11 +144,7 @@ impl StorageExt for PhysicalDrivePartition {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        _: &HashMap<String, Storage>,
-    ) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device, _: &Storages) -> Result<path::PathBuf> {
         Ok(self
             .local_infos
             .get(&device.name())
@@ -168,6 +167,10 @@ impl StorageExt for PhysicalDrivePartition {
         };
         Ok(())
     }
+
+    fn parent(&self, storages: &Storages) -> Result<Option<&Storage>> {
+        Ok(None)
+    }
 }
 
 impl fmt::Display for PhysicalDrivePartition {
@@ -189,7 +192,7 @@ impl fmt::Display for PhysicalDrivePartition {
 /// Interactively select physical storage from available disks in sysinfo.
 pub fn select_physical_storage(
     device: Device,
-    storages: &HashMap<String, Storage>,
+    storages: &Storages,
 ) -> Result<(String, PhysicalDrivePartition)> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
@@ -208,7 +211,7 @@ pub fn select_physical_storage(
     trace!("{}", disk_name);
     loop {
         disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.iter().all(|(k, v)| k != &disk_name) {
+        if storages.list.iter().all(|(k, v)| k != &disk_name) {
             break;
         }
         println!("The name {} is already used.", disk_name);

@@ -3,7 +3,8 @@
 use std::{
     collections::HashMap,
     io::{self, Write},
-    path::{Path, PathBuf}, string,
+    path::{Path, PathBuf},
+    string,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -14,12 +15,13 @@ use inquire::{min_length, Confirm, CustomType, Select, Text};
 use unicode_width::{self, UnicodeWidthStr};
 
 use crate::{
-    add_and_commit, ask_unique_name,
+    add_and_commit,
     cmd_args::Cli,
     devices::{self, Device},
     inquire_filepath_completer::FilePathCompleter,
     storages::{
         self, directory, local_info, physical_drive_partition, Storage, StorageExt, StorageType,
+        Storages,
     },
 };
 
@@ -32,12 +34,12 @@ pub(crate) fn cmd_storage_add(
     trace!("Storage Add {:?}, {:?}", storage_type, path);
     // Get storages
     // let mut storages: Vec<Storage> = get_storages(&config_dir)?;
-    let mut storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
+    let mut storages = Storages::read(&config_dir)?;
     trace!("found storages: {:?}", storages);
 
     let device = devices::get_device(&config_dir)?;
     let (key, storage) = match storage_type {
-        StorageType::Physical => {
+        StorageType::P => {
             let use_sysinfo = {
                 let options = vec![
                     "Fetch disk information automatically.",
@@ -64,7 +66,7 @@ pub(crate) fn cmd_storage_add(
                         .with_validator(min_length!(0, "At least 1 character"))
                         .prompt()
                         .context("Failed to get Name")?;
-                    if storages.iter().all(|(k, _v)| k != &name) {
+                    if storages.list.iter().all(|(k, _v)| k != &name) {
                         break;
                     }
                     println!("The name {} is already used.", name);
@@ -104,8 +106,8 @@ pub(crate) fn cmd_storage_add(
             println!("storage: {}: {:?}", key, storage);
             (key, Storage::PhysicalStorage(storage))
         }
-        StorageType::SubDirectory => {
-            if storages.is_empty() {
+        StorageType::S => {
+            if storages.list.is_empty() {
                 return Err(anyhow!(
                     "No storages found. Please add at least 1 physical storage first."
                 ));
@@ -135,7 +137,7 @@ pub(crate) fn cmd_storage_add(
             )?;
             (key_name, Storage::SubDirectory(storage))
         }
-        StorageType::Online => {
+        StorageType::O => {
             let path = path.unwrap_or_else(|| {
                 let mut cmd = Cli::command();
                 cmd.error(
@@ -150,7 +152,7 @@ pub(crate) fn cmd_storage_add(
                     .with_validator(min_length!(0, "At least 1 character"))
                     .prompt()
                     .context("Failed to get Name")?;
-                if storages.iter().all(|(k, _v)| k != &name) {
+                if storages.list.iter().all(|(k, _v)| k != &name) {
                     break;
                 }
                 println!("The name {} is already used.", name);
@@ -178,11 +180,11 @@ pub(crate) fn cmd_storage_add(
     };
 
     // add to storages
-    storages.insert(key.clone(), storage);
+    storages.add(storage)?;
     trace!("updated storages: {:?}", storages);
 
     // write to file
-    storages::write_storages(&config_dir, storages)?;
+    storages.write(&config_dir)?;
 
     // commit
     add_and_commit(
@@ -198,7 +200,7 @@ pub(crate) fn cmd_storage_add(
 
 pub(crate) fn cmd_storage_list(config_dir: &PathBuf, with_note: bool) -> Result<()> {
     // Get storages
-    let storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
+    let storages = Storages::read(&config_dir)?;
     trace!("found storages: {:?}", storages);
     let device = devices::get_device(&config_dir)?;
     let mut stdout = io::BufWriter::new(io::stdout());
@@ -209,17 +211,18 @@ pub(crate) fn cmd_storage_list(config_dir: &PathBuf, with_note: bool) -> Result<
 
 fn write_storages_list(
     mut writer: impl io::Write,
-    storages: &HashMap<String, Storage>,
+    storages: &Storages,
     device: &Device,
     long_display: bool,
 ) -> Result<()> {
     let name_width = storages
+        .list
         .iter()
         .map(|(_k, v)| v.name().width())
         .max()
         .unwrap();
     trace!("name widths: {}", name_width);
-    for (_k, storage) in storages {
+    for (_k, storage) in &storages.list {
         let size_str = match storage.capacity() {
             Some(b) => Byte::from_bytes(b.into())
                 .get_appropriate_unit(true)
@@ -244,7 +247,7 @@ fn write_storages_list(
             |v| v.display().to_string(),
         );
         let parent_name = if let Storage::SubDirectory(s) = storage {
-            s.parent(&storages)
+            s.parent(&storages)?
                 .context(format!("Failed to get parent of storage {}", s))?
                 .name()
         } else {
@@ -262,21 +265,11 @@ fn write_storages_list(
         )?;
         if long_display {
             let note = match storage {
-                Storage::PhysicalStorage(s) => {
-                    s.kind()
-                },
-                Storage::SubDirectory(s) => {
-                    &s.notes
-                },
-                Storage::Online(s) => {
-                    &s.provider
-                },
+                Storage::PhysicalStorage(s) => s.kind(),
+                Storage::SubDirectory(s) => &s.notes,
+                Storage::Online(s) => &s.provider,
             };
-            writeln!(
-                writer,
-                "    {}",
-                note
-            )?;
+            writeln!(writer, "    {}", note)?;
         }
     }
     Ok(())
@@ -291,10 +284,11 @@ pub(crate) fn cmd_storage_bind(
 ) -> Result<()> {
     let device = devices::get_device(&config_dir)?;
     // get storages
-    let mut storages: HashMap<String, Storage> = storages::get_storages(&config_dir)?;
+    let mut storages = Storages::read(&config_dir)?;
     let commit_comment = {
         // find matching storage
         let storage = &mut storages
+            .list
             .get_mut(&storage_name)
             .context(format!("No storage has name {}", storage_name))?;
         let old_alias = storage
@@ -310,7 +304,7 @@ pub(crate) fn cmd_storage_bind(
     trace!("bound new system name to the storage");
     trace!("storages: {:#?}", storages);
 
-    storages::write_storages(&config_dir, storages)?;
+    storages.write(&config_dir)?;
     // commit
     add_and_commit(
         &repo,
@@ -325,4 +319,16 @@ pub(crate) fn cmd_storage_bind(
         commit_comment
     );
     Ok(())
+}
+
+fn ask_unique_name(storages: &Storages, target: String) -> Result<String> {
+    let mut disk_name = String::new();
+    loop {
+        disk_name = Text::new(format!("Name for {}:", target).as_str()).prompt()?;
+        if storages.list.iter().all(|(k, v)| k != &disk_name) {
+            break;
+        }
+        println!("The name {} is already used.", disk_name);
+    }
+    Ok(disk_name)
 }

@@ -11,7 +11,7 @@ use crate::devices;
 
 use super::{
     local_info::{self, LocalInfo},
-    StorageExt,
+    StorageExt, Storages,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,7 +57,7 @@ impl StorageExt for OnlineStorage {
     fn mount_path(
         &self,
         device: &devices::Device,
-        _storages: &HashMap<String, super::Storage>,
+        _storages: &Storages,
     ) -> Result<std::path::PathBuf> {
         Ok(self
             .local_infos
@@ -80,6 +80,13 @@ impl StorageExt for OnlineStorage {
             None => info!("New value inserted."),
         };
         Ok(())
+    }
+
+    fn parent(
+        &self,
+        storages: &Storages,
+    ) -> Result<Option<&super::Storage>> {
+        Ok(None)
     }
 }
 

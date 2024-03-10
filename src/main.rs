@@ -18,6 +18,7 @@ use git2::{Commit, Oid, Repository};
 use inquire::{min_length, Confirm, CustomType, Select};
 use inquire::{validator::Validation, Text};
 use serde_yaml;
+use storages::Storages;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::{self, PathBuf};
@@ -25,7 +26,7 @@ use std::path::{self, PathBuf};
 use crate::cmd_args::{Cli, Commands, StorageCommands};
 use crate::storages::online_storage;
 use crate::storages::{
-    directory, get_storages, local_info, physical_drive_partition, write_storages, Storage,
+    directory, local_info, physical_drive_partition, Storage,
     StorageExt, StorageType, STORAGESFILE,
 };
 use devices::{Device, DEVICESFILE, *};
@@ -97,24 +98,12 @@ fn main() -> Result<()> {
         Commands::Check {} => {
             println!("Config dir: {}", &config_dir.display());
             let _storages =
-                storages::get_storages(&config_dir).context("Failed to parse storages file.");
+                Storages::read(&config_dir)?;
             todo!()
         }
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
-}
-
-fn ask_unique_name(storages: &HashMap<String, Storage>, target: String) -> Result<String> {
-    let mut disk_name = String::new();
-    loop {
-        disk_name = Text::new(format!("Name for {}:", target).as_str()).prompt()?;
-        if storages.iter().all(|(k, v)| k != &disk_name) {
-            break;
-        }
-        println!("The name {} is already used.", disk_name);
-    }
-    Ok(disk_name)
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {

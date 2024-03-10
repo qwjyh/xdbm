@@ -1,22 +1,32 @@
 //! Manipulates storages.
 
-use crate::devices;
 use crate::storages::directory::Directory;
 use crate::storages::online_storage::OnlineStorage;
 use crate::storages::physical_drive_partition::PhysicalDrivePartition;
+use crate::{devices, storages};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
+use core::panic;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ffi, fmt, fs, io, path, u64};
+use std::ffi::OsString;
+use std::{
+    collections::HashMap,
+    ffi,
+    fmt::{self, format},
+    fs, io, path, u64,
+};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
 
 #[derive(ValueEnum, Clone, Copy, Debug)]
 pub enum StorageType {
-    Physical,
-    SubDirectory,
-    Online,
+    /// Physical storage
+    P,
+    /// Sub directory
+    S,
+    /// Online storage
+    O,
 }
 
 /// All storage types.
@@ -67,7 +77,7 @@ impl StorageExt for Storage {
     fn mount_path(
         &self,
         device: &devices::Device,
-        storages: &HashMap<String, Storage>,
+        storages: &Storages,
     ) -> Result<path::PathBuf> {
         match self {
             Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
@@ -94,6 +104,14 @@ impl StorageExt for Storage {
             Storage::PhysicalStorage(s) => s.capacity(),
             Storage::SubDirectory(s) => s.capacity(),
             Storage::Online(s) => s.capacity(),
+        }
+    }
+
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>> {
+        match self {
+            Storage::PhysicalStorage(s) => s.parent(storages),
+            Storage::SubDirectory(s) => s.parent(storages),
+            Storage::Online(s) => s.parent(storages),
         }
     }
 }
@@ -130,7 +148,7 @@ pub trait StorageExt {
     fn mount_path(
         &self,
         device: &devices::Device,
-        storages: &HashMap<String, Storage>,
+        storages: &Storages,
     ) -> Result<path::PathBuf>;
 
     /// Add local info of `device` to `self`.
@@ -140,6 +158,9 @@ pub trait StorageExt {
         mount_point: path::PathBuf,
         device: &devices::Device,
     ) -> Result<()>;
+
+    /// Get parent
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>>;
 }
 
 pub mod directory;
@@ -147,36 +168,111 @@ pub mod local_info;
 pub mod online_storage;
 pub mod physical_drive_partition;
 
-/// Get `HashMap<String, Storage>` from devices.yml([devices::DEVICESFILE]).
-/// If [devices::DEVICESFILE] isn't found, return empty vec.
-pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>> {
-    if let Some(storages_file) = fs::read_dir(&config_dir)?
-        .filter(|f| {
-            f.as_ref().map_or_else(
-                |_e| false,
-                |f| {
-                    let storagesfile: ffi::OsString = STORAGESFILE.into();
-                    f.path().file_name() == Some(&storagesfile)
-                },
-            )
-        })
-        .next()
-    {
-        trace!("{} found: {:?}", STORAGESFILE, storages_file);
-        let f = fs::File::open(config_dir.join(STORAGESFILE))?;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Storages {
+    pub list: HashMap<String, Storage>,
+}
+
+impl Storages {
+    /// Construct empty [`Storages`]
+    pub fn new() -> Storages {
+        Storages {
+            list: HashMap::new(),
+        }
+    }
+
+    /// Get [`Storage`] with `name`.
+    pub fn get(&self, name: &String) -> Option<&Storage> {
+        self.list.get(name)
+    }
+
+    /// Add new [`Storage`] to [`Storages`]
+    /// New `storage` must has new unique name.
+    pub fn add(&mut self, storage: Storage) -> Result<()> {
+        if self.list.keys().any(|name| name == storage.name()) {
+            return Err(anyhow!(format!(
+                "Storage name {} already used",
+                storage.name()
+            )));
+        }
+        match self.list.insert(storage.name().to_string(), storage) {
+            Some(v) => {
+                error!("Inserted storage with existing name: {}", v);
+                panic!("unexpected behavior")
+            }
+            None => Ok(()),
+        }
+    }
+
+    /// Remove `storage` from [`Storages`].
+    /// Returns `Result` of removed [`Storage`].
+    pub fn remove(mut self, storage: Storage) -> Result<Option<Storage>> {
+        // dependency check
+        if self.list.iter().any(|(_k, v)| {
+            v.parent(&self)
+                .unwrap()
+                .is_some_and(|parent| parent.name() == storage.name())
+        }) {
+            return Err(anyhow!(
+                "Dependency error: storage {} has some children",
+                storage.name()
+            ));
+        }
+        Ok(self.list.remove(storage.name()))
+    }
+
+    /// Load [`Storages`] from data in `config_dir`.
+    pub fn read(config_dir: &path::Path) -> Result<Self> {
+        let storages_file = config_dir.join(STORAGESFILE);
+        if !storages_file.exists() {
+            trace!("No storages file found. Returning new `Storages` object.");
+            return Ok(Storages::new());
+        }
+        trace!("Reading {:?}", storages_file);
+        let f = fs::File::open(storages_file)?;
         let reader = io::BufReader::new(f);
-        let yaml: HashMap<String, Storage> =
-            serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
+        let yaml: Storages =
+            serde_yaml::from_reader(reader).context("Failed to parse storages.yml")?;
         Ok(yaml)
-    } else {
-        trace!("No {} found", STORAGESFILE);
-        Ok(HashMap::new())
+    }
+
+    pub fn write(self, config_dir: &path::Path) -> Result<()> {
+        let f = fs::File::create(config_dir.join(STORAGESFILE)).context("Failed to open storages file")?;
+        let writer = io::BufWriter::new(f);
+        serde_yaml::to_writer(writer, &self).context(format!("Failed to writing to {:?}", STORAGESFILE))
     }
 }
 
-/// Write `storages` to yaml file in `config_dir`.
-pub fn write_storages(config_dir: &path::Path, storages: HashMap<String, Storage>) -> Result<()> {
-    let f = fs::File::create(config_dir.join(STORAGESFILE))?;
-    let writer = io::BufWriter::new(f);
-    serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))
-}
+// /// Get `HashMap<String, Storage>` from devices.yml([devices::DEVICESFILE]).
+// /// If [devices::DEVICESFILE] isn't found, return empty vec.
+// pub fn get_storages(config_dir: &path::Path) -> Result<HashMap<String, Storage>> {
+//     if let Some(storages_file) = fs::read_dir(&config_dir)?
+//         .filter(|f| {
+//             f.as_ref().map_or_else(
+//                 |_e| false,
+//                 |f| {
+//                     let storagesfile: ffi::OsString = STORAGESFILE.into();
+//                     f.path().file_name() == Some(&storagesfile)
+//                 },
+//             )
+//         })
+//         .next()
+//     {
+//         trace!("{} found: {:?}", STORAGESFILE, storages_file);
+//         let f = fs::File::open(config_dir.join(STORAGESFILE))?;
+//         let reader = io::BufReader::new(f);
+//         let yaml: HashMap<String, Storage> =
+//             serde_yaml::from_reader(reader).context("Failed to read devices.yml")?;
+//         Ok(yaml)
+//     } else {
+//         trace!("No {} found", STORAGESFILE);
+//         Ok(HashMap::new())
+//     }
+// }
+//
+// /// Write `storages` to yaml file in `config_dir`.
+// pub fn write_storages(config_dir: &path::Path, storages: HashMap<String, Storage>) -> Result<()> {
+//     let f = fs::File::create(config_dir.join(STORAGESFILE))?;
+//     let writer = io::BufWriter::new(f);
+//     serde_yaml::to_writer(writer, &storages).map_err(|e| anyhow!(e))
+// }

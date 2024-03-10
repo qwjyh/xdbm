@@ -5,6 +5,7 @@
   - [ ] with ssh credential
     - [ ] ssh-agent
     - [ ] specify key
+- [ ] add storage remove command
 - [ ] add sync subcommand
 - [ ] add check subcommand
 - [ ] reorganize cmd option for storage
