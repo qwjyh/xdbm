@@ -193,7 +193,7 @@ impl fmt::Display for PhysicalDrivePartition {
 pub fn select_physical_storage(
     device: Device,
     storages: &Storages,
-) -> Result<(String, PhysicalDrivePartition)> {
+) -> Result<PhysicalDrivePartition> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
     let sys_disks =
@@ -217,8 +217,8 @@ pub fn select_physical_storage(
         println!("The name {} is already used.", disk_name);
     }
     trace!("selected name: {}", disk_name);
-    let storage = PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name.clone(), device)?;
-    Ok((disk_name, storage))
+    let storage = PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)?;
+    Ok(storage)
 }
 
 pub fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {

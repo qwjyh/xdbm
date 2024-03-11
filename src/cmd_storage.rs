@@ -37,7 +37,7 @@ pub(crate) fn cmd_storage_add(
     trace!("found storages: {:?}", storages);
 
     let device = devices::get_device(&config_dir)?;
-    let (key, storage) = match storage_type {
+    let storage = match storage_type {
         StorageType::P => {
             let use_sysinfo = {
                 let options = vec![
@@ -55,7 +55,7 @@ pub(crate) fn cmd_storage_add(
                     _ => false,
                 }
             };
-            let (key, storage) = if use_sysinfo {
+            let storage = if use_sysinfo {
                 // select storage
                 physical_drive_partition::select_physical_storage(device, &storages)?
             } else {
@@ -89,21 +89,18 @@ pub(crate) fn cmd_storage_add(
                         .prompt()?,
                 );
                 let local_info = local_info::LocalInfo::new("".to_string(), mount_path);
-                (
-                    name.clone(),
-                    physical_drive_partition::PhysicalDrivePartition::new(
-                        name,
-                        kind,
-                        capacity,
-                        fs,
-                        is_removable,
-                        local_info,
-                        &device,
-                    ),
+                physical_drive_partition::PhysicalDrivePartition::new(
+                    name,
+                    kind,
+                    capacity,
+                    fs,
+                    is_removable,
+                    local_info,
+                    &device,
                 )
             };
-            println!("storage: {}: {:?}", key, storage);
-            (key, Storage::PhysicalStorage(storage))
+            println!("storage: {}: {:?}", storage.name(), storage);
+            Storage::PhysicalStorage(storage)
         }
         StorageType::S => {
             if storages.list.is_empty() {
@@ -128,13 +125,9 @@ pub(crate) fn cmd_storage_add(
             let key_name = ask_unique_name(&storages, "sub-directory".to_string())?;
             let notes = Text::new("Notes for this sub-directory:").prompt()?;
             let storage = directory::Directory::try_from_device_path(
-                key_name.clone(),
-                path,
-                notes,
-                &device,
-                &storages,
+                key_name, path, notes, &device, &storages,
             )?;
-            (key_name, Storage::SubDirectory(storage))
+            Storage::SubDirectory(storage)
         }
         StorageType::O => {
             let path = path.unwrap_or_else(|| {
@@ -167,18 +160,14 @@ pub(crate) fn cmd_storage_add(
                 .prompt()
                 .context("Failed to get provider")?;
             let storage = storages::online_storage::OnlineStorage::new(
-                name.clone(),
-                provider,
-                capacity,
-                alias,
-                path,
-                &device,
+                name, provider, capacity, alias, path, &device,
             );
-            (name, Storage::Online(storage))
+            Storage::Online(storage)
         }
     };
 
     // add to storages
+    let new_storage_name = storage.name().clone();
     storages.add(storage)?;
     trace!("updated storages: {:?}", storages);
 
@@ -189,7 +178,7 @@ pub(crate) fn cmd_storage_add(
     add_and_commit(
         &repo,
         &Path::new(storages::STORAGESFILE),
-        &format!("Add new storage(physical drive): {}", key),
+        &format!("Add new storage(physical drive): {}", new_storage_name),
     )?;
 
     println!("Added new storage.");
