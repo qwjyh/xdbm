@@ -16,13 +16,19 @@ use super::{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OnlineStorage {
+    /// ID.
     name: String,
+    /// Provider string (for the common information).
     pub provider: String,
+    /// Capacity in bytes.
     capacity: u64,
+    /// Device and local info pairs.
     local_infos: HashMap<String, LocalInfo>,
 }
 
 impl OnlineStorage {
+    /// # Arguments
+    /// - alias: for [`LocalInfo`]
     pub fn new(
         name: String,
         provider: String,

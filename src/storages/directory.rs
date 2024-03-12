@@ -15,10 +15,14 @@ use super::{local_info::LocalInfo, Storage, StorageExt, Storages};
 /// Subdirectory of other [Storage]s.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Directory {
+    /// ID.
     name: String,
+    /// ID of parent storage.
     parent: String,
+    /// Relative path to the parent storage.
     relative_path: path::PathBuf,
     pub notes: String,
+    /// Device and localinfo pairs.
     local_infos: HashMap<String, LocalInfo>,
 }
 
@@ -47,6 +51,7 @@ impl Directory {
         name: String,
         path: path::PathBuf,
         notes: String,
+        alias: String,
         device: &devices::Device,
         storages: &Storages,
     ) -> Result<Directory> {
@@ -69,7 +74,7 @@ impl Directory {
             })
             .context(format!("Failed to compare diff of paths"))?;
         trace!("Selected parent: {}", parent_name);
-        let local_info = LocalInfo::new("".to_string(), path);
+        let local_info = LocalInfo::new(alias, path);
         Ok(Directory::new(
             name,
             parent_name.clone(),

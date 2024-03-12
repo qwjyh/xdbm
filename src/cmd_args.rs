@@ -3,6 +3,7 @@
 use crate::StorageType;
 use crate::path;
 use crate::PathBuf;
+use clap::Args;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
 
@@ -50,7 +51,7 @@ pub(crate) enum Commands {
     Check {},
 }
 
-#[derive(clap::Args, Debug)]
+#[derive(Args, Debug)]
 #[command(args_conflicts_with_subcommands = true)]
 pub(crate) struct StorageArgs {
     #[command(subcommand)]
@@ -60,14 +61,7 @@ pub(crate) struct StorageArgs {
 #[derive(Subcommand, Debug)]
 pub(crate) enum StorageCommands {
     /// Add new storage.
-    Add {
-        #[arg(value_enum)]
-        storage_type: StorageType,
-
-        // TODO: set this require and select matching disk for physical
-        #[arg(short, long, value_name = "PATH")]
-        path: Option<PathBuf>,
-    },
+    Add(StorageAddArgs),
     /// List all storages.
     List {
         /// Show note on the storages.
@@ -86,4 +80,51 @@ pub(crate) enum StorageCommands {
         #[arg(short, long)]
         path: path::PathBuf,
     },
+}
+
+#[derive(Args, Debug)]
+pub(crate) struct StorageAddArgs {
+    #[command(subcommand)]
+    pub(crate) command: StorageAddCommands,
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum StorageAddCommands {
+    /// Physical drive partition.
+    Physical {
+        /// Unique name for the storage.
+        name: String,
+        /// Path where the storage is mounted on this device.
+        /// leave blank to fetch system info automatically.
+        path: Option<PathBuf>,
+    },
+    /// Sub directory of other storages.
+    Directory {
+        /// Unique name for the storage.
+        name: String,
+        /// Path where the storage is mounted on this device.
+        path: PathBuf,
+        /// Additional info. Empty by default.
+        #[arg(short, long, default_value = "")]
+        notes: String,
+        /// Device specific alias for the storage.
+        #[arg(short, long)]
+        alias: String,
+    },
+    /// Online storage.
+    Online {
+        /// Unique name for the storage.
+        name: String,
+        /// Path where the storage is mounted on this device.
+        path: PathBuf,
+        /// Provider name (for the common information).
+        #[arg(short, long)]
+        provider: String,
+        /// Capacity in bytes.
+        #[arg(short, long)]
+        capacity: u64,
+        /// Device specific alias for the storage.
+        #[arg(short, long)]
+        alias: String,
+    }
 }

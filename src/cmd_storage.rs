@@ -16,149 +16,84 @@ use unicode_width::{self, UnicodeWidthStr};
 
 use crate::{
     add_and_commit,
-    cmd_args::Cli,
+    cmd_args::{Cli, StorageAddCommands},
     devices::{self, Device},
     inquire_filepath_completer::FilePathCompleter,
     storages::{
-        self, directory, local_info, physical_drive_partition, Storage, StorageExt, StorageType,
-        Storages,
+        self, directory, local_info,
+        physical_drive_partition::{self, PhysicalDrivePartition},
+        Storage, StorageExt, StorageType, Storages,
     },
 };
 
 pub(crate) fn cmd_storage_add(
-    storage_type: storages::StorageType,
-    path: Option<PathBuf>,
+    args: StorageAddCommands,
     repo: Repository,
     config_dir: &PathBuf,
 ) -> Result<()> {
-    trace!("Storage Add {:?}, {:?}", storage_type, path);
+    trace!("Storage Add with args: {:?}", args);
     // Get storages
     let mut storages = Storages::read(&config_dir)?;
     trace!("found storages: {:?}", storages);
 
     let device = devices::get_device(&config_dir)?;
-    let storage = match storage_type {
-        StorageType::P => {
-            let use_sysinfo = {
-                let options = vec![
-                    "Fetch disk information automatically.",
-                    "Type disk information manually.",
-                ];
-                let ans = Select::new(
-                    "Do you fetch disk information automatically? (it may take a few minutes)",
-                    options,
-                )
-                .prompt()
-                .context("Failed to get response. Please try again.")?;
-                match ans {
-                    "Fetch disk information automatically." => true,
-                    _ => false,
-                }
-            };
+    let storage = match args {
+        StorageAddCommands::Physical { name, path } => {
+            if !is_unique_name(&name, &storages) {
+                return Err(anyhow!(
+                    "The name {} is already used for another storage.",
+                    name
+                ));
+            }
+            let use_sysinfo = path.is_none();
             let storage = if use_sysinfo {
-                // select storage
-                physical_drive_partition::select_physical_storage(device, &storages)?
+                physical_drive_partition::select_physical_storage(name, device)?
             } else {
-                let mut name = String::new();
-                loop {
-                    name = Text::new("Name for the storage:")
-                        .with_validator(min_length!(0, "At least 1 character"))
-                        .prompt()
-                        .context("Failed to get Name")?;
-                    if storages.list.iter().all(|(k, _v)| k != &name) {
-                        break;
-                    }
-                    println!("The name {} is already used.", name);
-                }
-                let kind = Text::new("Kind of storage (ex. SSD):")
-                    .prompt()
-                    .context("Failed to get kind.")?;
-                let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
-                    .with_error_message("Please type number.")
-                    .prompt()
-                    .context("Failed to get capacity.")?;
-                let fs = Text::new("filesystem:")
-                    .prompt()
-                    .context("Failed to get fs.")?;
-                let is_removable = Confirm::new("Is removable")
-                    .prompt()
-                    .context("Failed to get is_removable")?;
-                let mount_path: PathBuf = PathBuf::from(
-                    Text::new("mount path:")
-                        .with_autocomplete(FilePathCompleter::default())
-                        .prompt()?,
-                );
-                let local_info = local_info::LocalInfo::new("".to_string(), mount_path);
-                physical_drive_partition::PhysicalDrivePartition::new(
-                    name,
-                    kind,
-                    capacity,
-                    fs,
-                    is_removable,
-                    local_info,
-                    &device,
-                )
+                manually_construct_physical_drive_partition(name, path.unwrap(), &device)?
             };
             println!("storage: {}: {:?}", storage.name(), storage);
             Storage::PhysicalStorage(storage)
         }
-        StorageType::S => {
+        StorageAddCommands::Directory {
+            name,
+            path,
+            notes,
+            alias,
+        } => {
+            if !is_unique_name(&name, &storages) {
+                return Err(anyhow!(
+                    "The name {} is already used for another storage.",
+                    name
+                ));
+            }
             if storages.list.is_empty() {
                 return Err(anyhow!(
                     "No storages found. Please add at least 1 physical/online storage first to add sub directory."
                 ));
             }
-            let path = path.unwrap_or_else(|| {
-                let mut cmd = Cli::command();
-                // TODO: weired def of cmd argument
-                cmd.error(
-                    ErrorKind::MissingRequiredArgument,
-                    "<PATH> is required with sub-directory",
-                )
-                .exit();
-            });
             trace!("SubDirectory arguments: path: {:?}", path);
             // Nightly feature std::path::absolute
             let path = path.canonicalize()?;
             trace!("canonicalized: path: {:?}", path);
 
-            let key_name = ask_unique_name(&storages, "sub-directory".to_string())?;
-            let notes = Text::new("Notes for this sub-directory:").prompt()?;
             let storage = directory::Directory::try_from_device_path(
-                key_name, path, notes, &device, &storages,
+                name, path, notes, alias, &device, &storages,
             )?;
             Storage::SubDirectory(storage)
         }
-        StorageType::O => {
-            let path = path.unwrap_or_else(|| {
-                let mut cmd = Cli::command();
-                cmd.error(
-                    ErrorKind::MissingRequiredArgument,
-                    "<PATH> is required with sub-directory",
-                )
-                .exit();
-            });
-            let mut name = String::new();
-            loop {
-                name = Text::new("Name for the storage:")
-                    .with_validator(min_length!(0, "At least 1 character"))
-                    .prompt()
-                    .context("Failed to get Name")?;
-                if storages.list.iter().all(|(k, _v)| k != &name) {
-                    break;
-                }
-                println!("The name {} is already used.", name);
+        StorageAddCommands::Online {
+            name,
+            path,
+            provider,
+            capacity,
+            alias,
+        } => {
+            if !is_unique_name(&name, &storages) {
+                return Err(anyhow!(
+                    "The name {} is already used for another storage.",
+                    name
+                ));
             }
-            let provider = Text::new("Provider:")
-                .prompt()
-                .context("Failed to get provider")?;
-            let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
-                .with_error_message("Please type number.")
-                .prompt()
-                .context("Failed to get capacity.")?;
-            let alias = Text::new("Alias:")
-                .prompt()
-                .context("Failed to get provider")?;
             let storage = storages::online_storage::OnlineStorage::new(
                 name, provider, capacity, alias, path, &device,
             );
@@ -168,6 +103,7 @@ pub(crate) fn cmd_storage_add(
 
     // add to storages
     let new_storage_name = storage.name().clone();
+    let new_storage_type = storage.typename().to_string();
     storages.add(storage)?;
     trace!("updated storages: {:?}", storages);
 
@@ -178,7 +114,10 @@ pub(crate) fn cmd_storage_add(
     add_and_commit(
         &repo,
         &Path::new(storages::STORAGESFILE),
-        &format!("Add new storage(physical drive): {}", new_storage_name),
+        &format!(
+            "Add new storage({}): {}",
+            new_storage_type, new_storage_name
+        ),
     )?;
 
     println!("Added new storage.");
@@ -186,10 +125,51 @@ pub(crate) fn cmd_storage_add(
     Ok(())
 }
 
+fn is_unique_name(newname: &String, storages: &Storages) -> bool {
+    storages.list.iter().all(|(name, _)| name != newname)
+}
+
+fn manually_construct_physical_drive_partition(
+    name: String,
+    path: PathBuf,
+    device: &Device,
+) -> Result<PhysicalDrivePartition> {
+    let kind = Text::new("Kind of storage (ex. SSD):")
+        .prompt()
+        .context("Failed to get kind.")?;
+    let capacity: u64 = CustomType::<u64>::new("Capacity (byte):")
+        .with_error_message("Please type number.")
+        .prompt()
+        .context("Failed to get capacity.")?;
+    let fs = Text::new("filesystem:")
+        .prompt()
+        .context("Failed to get fs.")?;
+    let is_removable = Confirm::new("Is removable")
+        .prompt()
+        .context("Failed to get is_removable")?;
+    let alias = Text::new("Alias of the storage for this device")
+        .prompt()
+        .context("Failed to get alias.")?;
+    let local_info = local_info::LocalInfo::new(alias, path);
+    Ok(physical_drive_partition::PhysicalDrivePartition::new(
+        name,
+        kind,
+        capacity,
+        fs,
+        is_removable,
+        local_info,
+        &device,
+    ))
+}
+
 pub(crate) fn cmd_storage_list(config_dir: &PathBuf, with_note: bool) -> Result<()> {
     // Get storages
     let storages = Storages::read(&config_dir)?;
     trace!("found storages: {:?}", storages);
+    if storages.list.is_empty() {
+        println!("No storages found");
+        return Ok(());
+    }
     let device = devices::get_device(&config_dir)?;
     let mut stdout = io::BufWriter::new(io::stdout());
     write_storages_list(&mut stdout, &storages, &device, with_note)?;

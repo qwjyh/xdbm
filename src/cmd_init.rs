@@ -76,6 +76,10 @@ pub(crate) fn cmd_init(
     ssh_key: Option<PathBuf>,
     config_dir: &path::PathBuf,
 ) -> Result<()> {
+    if config_dir.join(DEVICESFILE).exists() {
+        debug!("{} already exists.", DEVICESFILE);
+        return Err(anyhow!("This device is already added."));
+    }
     // validate device name
     if device_name.chars().count() == 0 {
         log::error!("Device name cannnot by empty");

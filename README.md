@@ -1,14 +1,19 @@
 # TODO:
 - [x] split subcommands to functions
 - [x] write test for init subcommand
-  - [ ] write test with existing repo
+  - [x] write test with existing repo
   - [x] with ssh credential
     - [x] ssh-agent
     - [x] specify key
+- [ ] write test for storage subcommand
+  - [ ] storage add online
+  - [ ] storage add directory
+  - [ ] storage list
 - [ ] add storage remove command
 - [ ] add sync subcommand
 - [ ] add check subcommand
-- [ ] reorganize cmd option for storage
-  - [ ] use subcommand
+- [x] reorganize cmd option for storage
+  - [x] use subcommand
+- [ ] no commit option
 
 <!-- vim: set sw=2 ts=2:  -->

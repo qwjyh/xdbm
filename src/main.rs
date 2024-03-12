@@ -71,9 +71,9 @@ fn main() -> Result<()> {
             )?;
             trace!("repo state: {:?}", repo.state());
             match storage.command {
-                StorageCommands::Add { storage_type, path } => {
-                    cmd_storage::cmd_storage_add(storage_type, path, repo, &config_dir)?
-                }
+                StorageCommands::Add(storageargs) => {
+                    cmd_storage::cmd_storage_add(storageargs.command, repo, &config_dir)?
+                },
                 StorageCommands::List { long } => cmd_storage::cmd_storage_list(&config_dir, long)?,
                 StorageCommands::Bind {
                     storage: storage_name,

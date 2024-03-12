@@ -7,11 +7,8 @@ use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use inquire::Text;
 use serde::{Deserialize, Serialize};
-use std::path::{self, PathBuf};
-use std::{
-    collections::{hash_map::RandomState, HashMap},
-    fmt,
-};
+use std::path;
+use std::{collections::HashMap, fmt};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
 use super::local_info::{self, LocalInfo};
@@ -191,8 +188,8 @@ impl fmt::Display for PhysicalDrivePartition {
 
 /// Interactively select physical storage from available disks in sysinfo.
 pub fn select_physical_storage(
+    disk_name: String,
     device: Device,
-    storages: &Storages,
 ) -> Result<PhysicalDrivePartition> {
     trace!("select_physical_storage");
     // get disk info fron sysinfo
@@ -206,22 +203,11 @@ pub fn select_physical_storage(
         trace!("{:?}", disk)
     }
     let disk = select_sysinfo_disk(&sys_disks)?;
-    // name the disk
-    let mut disk_name = String::new();
-    trace!("{}", disk_name);
-    loop {
-        disk_name = Text::new("Name for the disk:").prompt()?;
-        if storages.list.iter().all(|(k, v)| k != &disk_name) {
-            break;
-        }
-        println!("The name {} is already used.", disk_name);
-    }
-    trace!("selected name: {}", disk_name);
     let storage = PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)?;
     Ok(storage)
 }
 
-pub fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
+fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
     let available_disks = sysinfo
         .disks()
         .iter()
