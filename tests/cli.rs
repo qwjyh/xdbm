@@ -3,7 +3,9 @@ use assert_fs::prelude::*;
 
 mod cmd_init {
     use anyhow::{Ok, Result};
-    use assert_cmd::{cargo::CommandCargoExt, Command};
+    use assert_cmd::Command;
+    use git2::Repository;
+    use log::trace;
     use predicates::prelude::predicate;
 
     #[test]
@@ -33,6 +35,20 @@ mod cmd_init {
             .arg("first");
         cmd1.assert().success().stdout(predicate::str::contains(""));
 
+        // bare-repo
+        let bare_repo_dir = assert_fs::TempDir::new()?;
+        let bare_repo = Repository::init_bare(&bare_repo_dir)?;
+        let repo_1 = Repository::open(&config_dir_1)?;
+        let upstream_name = "remote";
+        let mut repo_1_remote =
+            repo_1.remote(upstream_name, &bare_repo_dir.path().to_str().unwrap())?;
+        repo_1_remote.push(&["refs/heads/main"], None)?;
+        trace!("bare repo {:?}", bare_repo_dir.display());
+        println!("{:?}", bare_repo_dir.read_dir()?);
+        // set up upstream branch
+        let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
+        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, "main").as_str()))?;
+
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
@@ -41,7 +57,7 @@ mod cmd_init {
             .arg("init")
             .arg("second")
             .arg("-r")
-            .arg(config_dir_1.path());
+            .arg(bare_repo_dir.path());
         cmd2.assert().success().stdout(predicate::str::contains(""));
 
         assert_eq!(
