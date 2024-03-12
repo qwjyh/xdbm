@@ -6,7 +6,7 @@
     - [x] ssh-agent
     - [x] specify key
 - [ ] write test for storage subcommand
-  - [ ] storage add online
+  - [x] storage add online
   - [ ] storage add directory
   - [ ] storage list
 - [ ] add storage remove command
