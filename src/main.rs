@@ -33,6 +33,7 @@ use devices::{Device, DEVICESFILE, *};
 mod cmd_args;
 mod cmd_init;
 mod cmd_storage;
+mod cmd_sync;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
@@ -91,9 +92,7 @@ fn main() -> Result<()> {
         Commands::Path {} => {
             println!("{}", &config_dir.display());
         }
-        Commands::Sync {} => {
-            unimplemented!("Sync is not implemented")
-        }
+        Commands::Sync { remote_name } => cmd_sync::cmd_sync(&config_dir, remote_name)?,
         Commands::Check {} => {
             println!("Config dir: {}", &config_dir.display());
             let _storages = Storages::read(&config_dir)?;

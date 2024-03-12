@@ -45,7 +45,10 @@ pub(crate) enum Commands {
     Path {},
 
     /// Sync with git repo.
-    Sync {},
+    Sync {
+        /// Remote name to sync.
+        remote_name: Option<String>,
+    },
 
     /// Check config files.
     Check {},
