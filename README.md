@@ -9,6 +9,7 @@
   - [x] storage add online
   - [ ] storage add directory
   - [ ] storage list
+- [x] update storage bind command
 - [ ] add storage remove command
 - [ ] add sync subcommand
 - [ ] add check subcommand

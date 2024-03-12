@@ -259,15 +259,22 @@ pub(crate) fn cmd_storage_bind(
             .list
             .get_mut(&storage_name)
             .context(format!("No storage has name {}", storage_name))?;
-        let old_alias = storage
-            .local_info(&device)
-            .context(format!("Failed to get LocalInfo for {}", storage.name()))?
-            .alias()
-            .clone();
+        if let Some(localinfo) = storage.local_info(&device) {
+            return Err(anyhow!(
+                "The storage {} is already bounded on this device as {}",
+                storage.name(),
+                localinfo.alias(),
+            ));
+        }
         // TODO: get mount path for directory automatically?
-        storage.bound_on_device(new_alias, mount_point, &device)?;
+        storage.bound_on_device(new_alias.clone(), mount_point, &device)?;
         // trace!("storage: {}", &storage);
-        format!("{} to {}", old_alias, storage.name())
+        format!(
+            "{} is now {} on the device {}",
+            storage.name(),
+            new_alias,
+            device.name()
+        )
     };
     trace!("bound new system name to the storage");
     trace!("storages: {:#?}", storages);
@@ -277,15 +284,9 @@ pub(crate) fn cmd_storage_bind(
     add_and_commit(
         &repo,
         &Path::new(storages::STORAGESFILE),
-        &format!(
-            "Bound new storage name to physical drive ({})",
-            commit_comment
-        ),
+        &format!("Bound new storage name to storage ({})", commit_comment),
     )?;
-    println!(
-        "Bound new storage name to physical drive ({})",
-        commit_comment
-    );
+    println!("Bound new storage name to storage ({})", commit_comment);
     Ok(())
 }
 

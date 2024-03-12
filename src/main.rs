@@ -73,7 +73,7 @@ fn main() -> Result<()> {
             match storage.command {
                 StorageCommands::Add(storageargs) => {
                     cmd_storage::cmd_storage_add(storageargs.command, repo, &config_dir)?
-                },
+                }
                 StorageCommands::List { long } => cmd_storage::cmd_storage_list(&config_dir, long)?,
                 StorageCommands::Bind {
                     storage: storage_name,
