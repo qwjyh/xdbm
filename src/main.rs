@@ -15,21 +15,18 @@ extern crate dirs;
 use anyhow::{anyhow, Context, Result};
 use clap::{CommandFactory, Parser};
 use git2::{Commit, Oid, Repository};
-use inquire::{min_length, Confirm, CustomType, Select};
-use inquire::{validator::Validation, Text};
-use serde_yaml;
-use std::collections::HashMap;
 use std::path::Path;
 use std::path::{self, PathBuf};
 use storages::Storages;
 
 use crate::cmd_args::{Cli, Commands, StorageCommands};
-use crate::storages::online_storage;
 use crate::storages::{
-    directory, local_info, physical_drive_partition, Storage, StorageExt, StorageType, STORAGESFILE,
+    directory, local_info, online_storage, physical_drive_partition, Storage, StorageExt,
+    StorageType, STORAGESFILE,
 };
 use devices::{Device, DEVICESFILE, *};
 
+mod backups;
 mod cmd_args;
 mod cmd_init;
 mod cmd_storage;
@@ -37,8 +34,6 @@ mod cmd_sync;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
-
-struct BackupLog {}
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -98,6 +93,7 @@ fn main() -> Result<()> {
             let _storages = Storages::read(&config_dir)?;
             todo!()
         }
+        Commands::Backup(_) => todo!(),
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())

@@ -30,7 +30,7 @@ impl Directory {
     /// - `name`: id
     /// - `parent`: where the directory locates.
     /// - `relative_path`: path from root of the parent storage.
-    /// - `notes`: supplimental notes.
+    /// - `notes`: supplemental notes.
     fn new(
         name: String,
         parent: String,

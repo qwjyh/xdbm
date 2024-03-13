@@ -1,6 +1,5 @@
 //! CLI arguments
 
-use crate::StorageType;
 use crate::path;
 use crate::PathBuf;
 use clap::Args;
@@ -40,6 +39,10 @@ pub(crate) enum Commands {
 
     /// Manage storages.
     Storage(StorageArgs),
+
+    /// Manage backups.
+    #[command(subcommand)]
+    Backup(BackupSubCommands),
 
     /// Print config dir.
     Path {},
@@ -129,5 +132,40 @@ pub(crate) enum StorageAddCommands {
         /// Device specific alias for the storage.
         #[arg(short, long)]
         alias: String,
-    }
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum BackupSubCommands {
+    /// Add new backup config.
+    Add {
+        name: String,
+        /// Source of the data backuped.
+        #[arg(short, long)]
+        src: PathBuf,
+        /// Destination of the backuped data.
+        #[arg(short, long)]
+        dest: PathBuf,
+        #[command(subcommand)]
+        cmd: BackupAddCommands,
+    },
+    /// Print configured backups.
+    List {},
+    /// Record xdbm that the backup with the name has finished right now.
+    Done {
+        name: String,
+        succeeded: bool,
+        #[arg(short, long)]
+        log: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum BackupAddCommands {
+    /// Invoke logging via cli of xdbm. The simplest one.
+    External {
+        name: String,
+        #[arg(default_value = "")]
+        note: String,
+    },
 }

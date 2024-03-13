@@ -8,13 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use core::panic;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
-use std::{
-    collections::HashMap,
-    ffi,
-    fmt::{self, format},
-    fs, io, path, u64,
-};
+use std::{collections::HashMap, fmt, fs, io, path, u64};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -74,11 +68,7 @@ impl StorageExt for Storage {
         }
     }
 
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &Storages,
-    ) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
         match self {
             Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
             Self::SubDirectory(s) => s.mount_path(&device, &storages),
@@ -145,11 +135,7 @@ pub trait StorageExt {
 
     /// Get mount path of `self` on `device`.
     /// `storages` is a `HashMap` with key of storage name and value of the storage.
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &Storages,
-    ) -> Result<path::PathBuf>;
+    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf>;
 
     /// Add local info of `device` to `self`.
     fn bound_on_device(
@@ -226,7 +212,7 @@ impl Storages {
         let storages_file = config_dir.join(STORAGESFILE);
         if !storages_file.exists() {
             warn!("No storages file found.");
-            return Err(anyhow!("Couln't find {}", STORAGESFILE))
+            return Err(anyhow!("Couln't find {}", STORAGESFILE));
         }
         trace!("Reading {:?}", storages_file);
         let f = fs::File::open(storages_file)?;
@@ -237,8 +223,10 @@ impl Storages {
     }
 
     pub fn write(self, config_dir: &path::Path) -> Result<()> {
-        let f = fs::File::create(config_dir.join(STORAGESFILE)).context("Failed to open storages file")?;
+        let f = fs::File::create(config_dir.join(STORAGESFILE))
+            .context("Failed to open storages file")?;
         let writer = io::BufWriter::new(f);
-        serde_yaml::to_writer(writer, &self).context(format!("Failed to writing to {:?}", STORAGESFILE))
+        serde_yaml::to_writer(writer, &self)
+            .context(format!("Failed to writing to {:?}", STORAGESFILE))
     }
 }

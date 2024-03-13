@@ -82,7 +82,7 @@ pub(crate) fn cmd_init(
     }
     // validate device name
     if device_name.chars().count() == 0 {
-        log::error!("Device name cannnot by empty");
+        log::error!("Device name cannot by empty");
         return Err(anyhow!("Device name is empty"));
     }
     // get repo or initialize it

@@ -12,7 +12,7 @@ pub const DEVICESFILE: &str = "devices.yml";
 
 /// Represents each devices.
 /// Identified by name, which is accessible from `name()`.
-/// Store os name, os version and hostname as supplimental information.
+/// Store os name, os version and hostname as supplemental information.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Device {
     name: String,

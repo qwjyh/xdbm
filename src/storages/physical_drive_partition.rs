@@ -192,7 +192,7 @@ pub fn select_physical_storage(
     device: Device,
 ) -> Result<PhysicalDrivePartition> {
     trace!("select_physical_storage");
-    // get disk info fron sysinfo
+    // get disk info from sysinfo
     let sys_disks =
         sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_disks_list());
     trace!("refresh");
