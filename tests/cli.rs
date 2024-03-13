@@ -1,6 +1,8 @@
 mod cmd_init {
-    use anyhow::{Ok, Result};
-    use assert_cmd::Command;
+    use std::fs::DirBuilder;
+
+    use anyhow::{anyhow, Ok, Result};
+    use assert_cmd::{assert::OutputAssertExt, cargo::CommandCargoExt, Command};
     use git2::Repository;
     use log::trace;
     use predicates::prelude::predicate;
@@ -61,6 +63,38 @@ mod cmd_init {
     }
 
     #[test]
+    fn directory_without_parent() -> Result<()> {
+        // 1st device
+        let config_dir_1 = assert_fs::TempDir::new()?;
+        let mut cmd1 = Command::cargo_bin("xdbm")?;
+        cmd1.arg("-c")
+            .arg(config_dir_1.path())
+            .arg("init")
+            .arg("first");
+        cmd1.assert().success().stdout(predicate::str::contains(""));
+
+        // add storage
+        let sample_storage = assert_fs::TempDir::new()?;
+        let mut cmd_add_storage = Command::cargo_bin("xdbm")?;
+        cmd_add_storage
+            .arg("-c")
+            .arg(config_dir_1.path())
+            .arg("storage")
+            .arg("add")
+            .arg("directory")
+            .arg("--alias")
+            .arg("gdrive")
+            .arg("gdrive")
+            .arg(sample_storage.path());
+        cmd_add_storage
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("No storages found"));
+
+        Ok(())
+    }
+
+    #[test]
     fn two_devices() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
@@ -107,6 +141,23 @@ mod cmd_init {
         assert!(
             std::fs::read_to_string(config_dir_2.path().join("devices.yml"))?.contains("second")
         );
+        assert!(config_dir_2.join("backups").join("first.yml").exists());
+        assert!(config_dir_2.join("backups").join("second.yml").exists());
+
+        std::process::Command::new("git")
+            .arg("push")
+            .current_dir(&config_dir_2)
+            .assert()
+            .success();
+        // let repo_2 = Repository::open(config_dir_2)?;
+        // // return Err(anyhow!("{:?}", repo_2.remotes()?.iter().collect::<Vec<_>>()));
+        // let mut repo_2_remote = repo_2.find_remote(repo_2.remotes()?.get(0).unwrap())?;
+        // repo_2_remote.push(&[] as &[&str], None)?;
+        std::process::Command::new("git")
+            .arg("pull")
+            .current_dir(&config_dir_1)
+            .assert()
+            .success();
 
         // Add storage
         let sample_storage = assert_fs::TempDir::new()?;
@@ -126,6 +177,53 @@ mod cmd_init {
             .arg("gdrive1")
             .arg(sample_storage.path());
         cmd_add_storage_1
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(""));
+        // Add storage (directory)
+        let sample_directory = sample_storage.join("foo").join("bar");
+        DirBuilder::new()
+            .recursive(true)
+            .create(&sample_directory)?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_1.path())
+            .arg("storage")
+            .arg("add")
+            .arg("directory")
+            .arg("--alias")
+            .arg("docs")
+            .arg("gdrive_docs")
+            .arg(&sample_directory)
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(""));
+        assert!(
+            std::fs::read_to_string(config_dir_1.join("storages.yml"))?.contains("parent: gdrive1")
+        );
+
+        std::process::Command::new("git")
+            .arg("push")
+            .current_dir(&config_dir_1)
+            .assert()
+            .success();
+        std::process::Command::new("git")
+            .arg("pull")
+            .current_dir(&config_dir_2)
+            .assert()
+            .success();
+
+        // bind
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("storage")
+            .arg("bind")
+            .arg("--alias")
+            .arg("gdocs")
+            .arg("--path")
+            .arg(&sample_directory)
+            .arg("gdrive_docs")
             .assert()
             .success()
             .stdout(predicate::str::contains(""));
