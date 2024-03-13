@@ -165,8 +165,8 @@ impl StorageExt for PhysicalDrivePartition {
         Ok(())
     }
 
-    fn parent(&self, storages: &Storages) -> Result<Option<&Storage>> {
-        Ok(None)
+    fn parent(&self, storages: &Storages) -> Option<&Storage> {
+        None
     }
 }
 

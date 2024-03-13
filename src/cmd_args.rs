@@ -86,6 +86,10 @@ pub(crate) enum StorageCommands {
         #[arg(short, long)]
         path: path::PathBuf,
     },
+    // /// Remove storage from the storage list
+    // Remove {
+    //     storage: String,
+    // }
 }
 
 #[derive(Args, Debug)]

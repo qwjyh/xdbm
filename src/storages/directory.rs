@@ -9,6 +9,7 @@ use std::{
 };
 
 use crate::devices;
+use crate::util;
 
 use super::{local_info::LocalInfo, Storage, StorageExt, Storages};
 
@@ -55,29 +56,13 @@ impl Directory {
         device: &devices::Device,
         storages: &Storages,
     ) -> Result<Directory> {
-        let (parent_name, diff_path) = storages
-            .list
-            .iter()
-            .filter(|(_k, v)| v.has_alias(&device))
-            .filter_map(|(k, v)| {
-                let diff = pathdiff::diff_paths(&path, v.mount_path(&device, &storages).unwrap())?;
-                trace!("Pathdiff: {:?}", diff);
-                if diff.components().any(|c| c == path::Component::ParentDir) {
-                    None
-                } else {
-                    Some((k, diff))
-                }
-            })
-            .min_by_key(|(_k, v)| {
-                let diff_paths: Vec<path::Component<'_>> = v.components().collect();
-                diff_paths.len()
-            })
-            .context(format!("Failed to compare diff of paths"))?;
-        trace!("Selected parent: {}", parent_name);
+        let (parent, diff_path) = util::min_parent_storage(&path, storages, &device)
+            .context("Failed to compare diff of paths")?;
+        trace!("Selected parent: {}", parent.name());
         let local_info = LocalInfo::new(alias, path);
         Ok(Directory::new(
             name,
-            parent_name.clone(),
+            parent.name().to_string(),
             diff_path,
             notes,
             HashMap::from([(device.name(), local_info)]),
@@ -97,7 +82,7 @@ impl Directory {
     /// Resolve mount path of directory with current device.
     fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
         let parent_mount_path = self
-            .parent(&storages)?
+            .parent(&storages)
             .context("Can't find parent storage")?
             .mount_path(&device, &storages)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
@@ -117,12 +102,12 @@ impl StorageExt for Directory {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-        storages: &Storages,
-    ) -> Result<path::PathBuf> {
-        Ok(self.mount_path(device, storages)?)
+    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
+        Ok(self
+            .local_infos
+            .get(&device.name())
+            .context(format!("LocalInfo for storage: {} not found", &self.name()))?
+            .mount_path())
     }
 
     /// This method doesn't use `mount_path`.
@@ -141,14 +126,8 @@ impl StorageExt for Directory {
     }
 
     // Get parent `&Storage` of directory.
-    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>> {
-        match storages.get(&self.parent).context(format!(
-            "No parent {} exists for directory {}",
-            &self.parent, &self.name
-        )) {
-            Ok(s) => Ok(Some(s)),
-            Err(e) => Err(anyhow!(e)),
-        }
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&Storage> {
+        storages.get(&self.parent)
     }
 }
 
@@ -205,10 +184,15 @@ mod test {
             local_infos,
         );
         let mut storages = Storages::new();
-        storages.add(storages::Storage::PhysicalStorage(physical)).unwrap();
+        storages
+            .add(storages::Storage::PhysicalStorage(physical))
+            .unwrap();
         storages.add(Storage::SubDirectory(directory)).unwrap();
         // assert_eq!(directory.name(), "test_name");
-        assert_eq!(storages.get(&"test_name".to_string()).unwrap().name(), "test_name");
+        assert_eq!(
+            storages.get(&"test_name".to_string()).unwrap().name(),
+            "test_name"
+        );
         assert_eq!(
             storages
                 .get(&"test_name".to_string())

@@ -181,7 +181,7 @@ mod cmd_init {
             .success()
             .stdout(predicate::str::contains(""));
         // Add storage (directory)
-        let sample_directory = sample_storage.join("foo").join("bar");
+        let sample_directory = &sample_storage.join("foo").join("bar");
         DirBuilder::new()
             .recursive(true)
             .create(&sample_directory)?;
@@ -227,6 +227,71 @@ mod cmd_init {
             .assert()
             .success()
             .stdout(predicate::str::contains(""));
+
+        // storage 3
+        let sample_storage_2 = assert_fs::TempDir::new()?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(&config_dir_2.path())
+            .arg("storage")
+            .arg("add")
+            .arg("online")
+            .arg("--provider")
+            .arg("me")
+            .arg("--capacity")
+            .arg("1000000000000")
+            .arg("--alias")
+            .arg("nas")
+            .arg("nas")
+            .arg(&sample_storage_2.path())
+            .assert()
+            .success();
+
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(&config_dir_2.path())
+            .arg("storage")
+            .arg("list")
+            .arg("-l")
+            .assert()
+            .success();
+        // backup add
+        let backup_src = &sample_storage_2.join("foo").join("bar");
+        DirBuilder::new().recursive(true).create(&backup_src)?;
+        let backup_dest = &sample_directory.join("docs");
+        DirBuilder::new().recursive(true).create(&backup_dest)?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(&config_dir_2.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(&backup_src)
+            .arg("--dest")
+            .arg(&backup_dest)
+            .arg("foodoc")
+            .arg("external")
+            .arg("rsync")
+            .arg("note: nonsense")
+            .assert()
+            .success();
+
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(&config_dir_2.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(&backup_src)
+            .arg("--dest")
+            .arg(&backup_dest)
+            .arg("foodoc")
+            .arg("external")
+            .arg("rsync")
+            .arg("note: nonsense")
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("already"));
 
         Ok(())
     }

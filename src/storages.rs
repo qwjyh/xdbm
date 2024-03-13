@@ -97,7 +97,7 @@ impl StorageExt for Storage {
         }
     }
 
-    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>> {
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&'a Storage> {
         match self {
             Storage::PhysicalStorage(s) => s.parent(storages),
             Storage::SubDirectory(s) => s.parent(storages),
@@ -146,7 +146,7 @@ pub trait StorageExt {
     ) -> Result<()>;
 
     /// Get parent
-    fn parent<'a>(&'a self, storages: &'a Storages) -> Result<Option<&Storage>>;
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&Storage>;
 }
 
 pub mod directory;
@@ -196,7 +196,6 @@ impl Storages {
         // dependency check
         if self.list.iter().any(|(_k, v)| {
             v.parent(&self)
-                .unwrap()
                 .is_some_and(|parent| parent.name() == storage.name())
         }) {
             return Err(anyhow!(

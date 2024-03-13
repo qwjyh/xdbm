@@ -1,17 +1,14 @@
 //! Storage subcommands.
 
 use std::{
-    collections::HashMap,
     io::{self, Write},
     path::{Path, PathBuf},
-    string,
 };
 
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
-use clap::{error::ErrorKind, CommandFactory};
 use git2::Repository;
-use inquire::{min_length, Confirm, CustomType, Select, Text};
+use inquire::{Confirm, CustomType, Text};
 use unicode_width::{self, UnicodeWidthStr};
 
 use crate::{
@@ -215,7 +212,7 @@ fn write_storages_list(
             |v| v.display().to_string(),
         );
         let parent_name = if let Storage::SubDirectory(s) = storage {
-            s.parent(&storages)?
+            s.parent(&storages)
                 .context(format!("Failed to get parent of storage {}", s))?
                 .name()
         } else {

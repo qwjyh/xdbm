@@ -19,7 +19,7 @@ use std::path::Path;
 use std::path::{self, PathBuf};
 use storages::Storages;
 
-use crate::cmd_args::{Cli, Commands, StorageCommands};
+use crate::cmd_args::{BackupSubCommands, Cli, Commands, StorageCommands};
 use crate::storages::{
     directory, local_info, online_storage, physical_drive_partition, Storage, StorageExt,
     StorageType, STORAGESFILE,
@@ -28,12 +28,14 @@ use devices::{Device, DEVICESFILE, *};
 
 mod backups;
 mod cmd_args;
+mod cmd_backup;
 mod cmd_init;
 mod cmd_storage;
 mod cmd_sync;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
+mod util;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -93,7 +95,27 @@ fn main() -> Result<()> {
             let _storages = Storages::read(&config_dir)?;
             todo!()
         }
-        Commands::Backup(_) => todo!(),
+        Commands::Backup(backup) => {
+            trace!("backup subcommand with args: {:?}", backup);
+            let repo = Repository::open(&config_dir).context(
+                "Repository doesn't exist on the config path. Please run init to initialize the repository.",
+            )?;
+            let storages = Storages::read(&config_dir)?;
+            match backup {
+                BackupSubCommands::Add {
+                    name,
+                    src,
+                    dest,
+                    cmd,
+                } => cmd_backup::cmd_backup_add(name, src, dest, cmd, repo, &config_dir, &storages)?,
+                BackupSubCommands::List {} => todo!(),
+                BackupSubCommands::Done {
+                    name,
+                    exit_status,
+                    log,
+                } => todo!(),
+            }
+        }
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())

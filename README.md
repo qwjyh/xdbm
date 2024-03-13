@@ -18,7 +18,7 @@
   - [x] use subcommand
 - [ ] backup subcommands
   - [ ] backup add
-    - [ ] test for backup add
+    - [?] test for backup add
   - [ ] backup list
   - [ ] backup done
 - [ ] no commit option

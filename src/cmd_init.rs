@@ -1,14 +1,16 @@
 //! Init subcommand.
 //! Initialize xdbm for the device.
 
+use crate::backups::{backups_file, Backups};
 use crate::storages::{Storages, STORAGESFILE};
-use crate::{add_and_commit, full_status, get_devices, write_devices, Device, DEVICESFILE};
+use crate::{
+    add_and_commit, backups, full_status, get_devices, write_devices, Device, DEVICESFILE,
+};
 use anyhow::{anyhow, Context, Ok, Result};
 use core::panic;
 use git2::{Cred, RemoteCallbacks, Repository};
 use inquire::Password;
-use std::env;
-use std::fs::File;
+use std::fs::{DirBuilder, File};
 use std::io::{BufWriter, Write};
 use std::path::{self, Path, PathBuf};
 
@@ -128,6 +130,9 @@ pub(crate) fn cmd_init(
                 &format!("Initialize {}", STORAGESFILE),
             )?;
 
+            // set up directory for backups
+            DirBuilder::new().create(&config_dir.join(backups::BACKUPSDIR))?;
+
             repo
         }
     };
@@ -153,6 +158,8 @@ pub(crate) fn cmd_init(
         let mut devices: Vec<Device> = get_devices(&config_dir)?;
         trace!("devices: {:?}", devices);
         if devices.iter().any(|x| x.name() == device.name()) {
+            error!("Device name `{}` is already used.", device.name());
+            error!("Clear the config directory and try again with different name");
             return Err(anyhow!("device name is already used."));
         }
         devices.push(device.clone());
@@ -167,6 +174,18 @@ pub(crate) fn cmd_init(
         &Path::new(DEVICESFILE),
         &format!("Add new device: {}", &device.name()),
     )?;
+
+    // backups/[device].yml
+    {
+        let backups = Backups::new();
+        backups.write(&config_dir, &device)?;
+    }
+    add_and_commit(
+        &repo,
+        &backups::backups_file(&device),
+        &format!("Add new backups for device: {}", &device.name()),
+    )?;
+
     println!("Device added");
     full_status(&repo)?;
     Ok(())

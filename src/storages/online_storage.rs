@@ -11,7 +11,7 @@ use crate::devices;
 
 use super::{
     local_info::{self, LocalInfo},
-    StorageExt, Storages,
+    Storage, StorageExt, Storages,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,11 +88,8 @@ impl StorageExt for OnlineStorage {
         Ok(())
     }
 
-    fn parent(
-        &self,
-        storages: &Storages,
-    ) -> Result<Option<&super::Storage>> {
-        Ok(None)
+    fn parent(&self, storages: &Storages) -> Option<&Storage> {
+        None
     }
 }
 
