@@ -153,8 +153,11 @@ pub(crate) enum BackupSubCommands {
     List {},
     /// Record xdbm that the backup with the name has finished right now.
     Done {
+        /// Name of the backup config.
         name: String,
-        succeeded: bool,
+        /// Result of the backup
+        exit_status: u64,
+        /// Optional log or note about the backup execution.
         #[arg(short, long)]
         log: Option<String>,
     },
