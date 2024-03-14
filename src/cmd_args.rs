@@ -154,7 +154,17 @@ pub(crate) enum BackupSubCommands {
         cmd: BackupAddCommands,
     },
     /// Print configured backups.
-    List {},
+    /// Filter by src/dest storage or device.
+    List {
+        #[arg(long)]
+        src: Option<String>,
+        #[arg(long)]
+        dest: Option<String>,
+        #[arg(long)]
+        device: Option<String>,
+        #[arg(short, long)]
+        long: bool,
+    },
     /// Record xdbm that the backup with the name has finished right now.
     Done {
         /// Name of the backup config.

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     devices::Device,
-    storages::{self, Storage},
+    storages::{self, Storage, StorageExt, Storages},
 };
 
 /// Directory to store backup configs for each devices.
@@ -28,9 +28,9 @@ pub fn backups_file(device: &Device) -> PathBuf {
 pub struct BackupTarget {
     /// `name()` of [`Storage`].
     /// Use `String` for serialization/deserialization.
-    storage: String,
+    pub storage: String,
     /// Relative path to the `storage`.
-    path: PathBuf,
+    pub path: PathBuf,
 }
 
 impl BackupTarget {
@@ -40,12 +40,38 @@ impl BackupTarget {
             path: relative_path,
         }
     }
+
+    pub fn path(&self, storages: &Storages, device: &Device) -> Result<PathBuf> {
+        let parent = storages.get(&self.storage).unwrap();
+        let parent_path = parent.mount_path(device, storages)?;
+        Ok(parent_path.join(self.path.clone()))
+    }
 }
 
 /// Type of backup commands.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum BackupCommand {
     ExternallyInvoked(ExternallyInvoked),
+}
+
+pub trait BackupCommandExt {
+    fn name(&self) -> &String;
+
+    fn note(&self) -> &String;
+}
+
+impl BackupCommandExt for BackupCommand {
+    fn name(&self) -> &String {
+        match self {
+            BackupCommand::ExternallyInvoked(cmd) => cmd.name(),
+        }
+    }
+
+    fn note(&self) -> &String {
+        match self {
+            BackupCommand::ExternallyInvoked(cmd) => cmd.note(),
+        }
+    }
 }
 
 /// Backup commands which is not invoked from xdbm itself.
@@ -59,6 +85,16 @@ pub struct ExternallyInvoked {
 impl ExternallyInvoked {
     pub fn new(name: String, note: String) -> Self {
         ExternallyInvoked { name, note }
+    }
+}
+
+impl BackupCommandExt for ExternallyInvoked {
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    fn note(&self) -> &String {
+        &self.note
     }
 }
 
@@ -111,6 +147,22 @@ impl Backup {
 
     pub fn name(&self) -> &String {
         &self.name
+    }
+
+    pub fn device<'a>(&'a self, devices: &'a Vec<Device>) -> Option<&Device> {
+        devices.iter().find(|dev| dev.name() == self.device)
+    }
+
+    pub fn source(&self) -> &BackupTarget {
+        &self.from
+    }
+
+    pub fn destination(&self) -> &BackupTarget {
+        &self.to
+    }
+
+    pub fn command(&self) -> &BackupCommand {
+        &self.command
     }
 }
 

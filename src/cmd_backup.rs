@@ -1,11 +1,18 @@
-use std::{io::stdout, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    io::{self, stdout, Write},
+    path::PathBuf,
+};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use git2::Repository;
+use unicode_width::UnicodeWidthStr;
 
 use crate::{
     add_and_commit,
-    backups::{self, Backup, BackupCommand, BackupTarget, Backups, ExternallyInvoked},
+    backups::{
+        self, Backup, BackupCommand, BackupCommandExt, BackupTarget, Backups, ExternallyInvoked,
+    },
     cmd_args::BackupAddCommands,
     devices::{self, Device},
     storages::{StorageExt, Storages},
@@ -78,4 +85,133 @@ fn new_backup(
         dest_target,
         command,
     ))
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    #[test]
+    fn test_new_backup() -> Result<()> {
+        todo!()
+    }
+}
+
+pub fn cmd_backup_list(
+    src_storage: Option<String>,
+    dest_storage: Option<String>,
+    device_name: Option<String>,
+    longprint: bool,
+    config_dir: &PathBuf,
+    storages: &Storages,
+) -> Result<()> {
+    let devices = devices::get_devices(&config_dir)?;
+    let backups: HashMap<(String, String), Backup> = match device_name {
+        Some(device_name) => {
+            let device = devices
+                .iter()
+                .find(|dev| dev.name() == device_name)
+                .context(format!("Device with name {} doesn't exist", device_name))?;
+            let backups = Backups::read(&config_dir, device)?;
+            let mut allbackups = HashMap::new();
+            for (name, backup) in backups.list {
+                if allbackups.insert((device.name(), name), backup).is_some() {
+                    return Err(anyhow!("unexpected duplication in backups hashmap"));
+                };
+            }
+            allbackups
+        }
+        None => {
+            let mut allbackups = HashMap::new();
+            for device in &devices {
+                let backups = Backups::read(&config_dir, &device)?;
+                for (name, backup) in backups.list {
+                    if allbackups.insert((device.name(), name), backup).is_some() {
+                        return Err(anyhow!("unexpected duplication in backups hashmap"));
+                    };
+                }
+            }
+            allbackups
+        }
+    };
+    // source/destination filtering
+    let backups: HashMap<(String, String), Backup> = backups
+        .into_iter()
+        .filter(|((_dev, _name), backup)| {
+            let src_matched = match &src_storage {
+                Some(src_storage) => &backup.source().storage == src_storage,
+                None => true,
+            };
+            let dest_matched = match &dest_storage {
+                Some(dest_storage) => &backup.destination().storage == dest_storage,
+                None => true,
+            };
+            src_matched && dest_matched
+        })
+        .collect();
+
+    let mut stdout = io::BufWriter::new(io::stdout());
+    write_backups_list(&mut stdout, backups, longprint, storages, &devices)?;
+    stdout.flush()?;
+    Ok(())
+}
+
+/// TODO: status printing
+fn write_backups_list(
+    mut writer: impl io::Write,
+    backups: HashMap<(String, String), Backup>,
+    longprint: bool,
+    storages: &Storages,
+    devices: &Vec<Device>,
+) -> Result<()> {
+    let mut name_width = 0;
+    let mut dev_width = 0;
+    let mut src_width = 0;
+    let mut src_storage_width = 0;
+    let mut dest_width = 0;
+    let mut dest_storage_width = 0;
+    // get widths
+    for ((dev, _name), backup) in &backups {
+        let device = backup.device(devices).context(format!(
+            "Couldn't find device specified in backup config {}",
+            backup.name()
+        ))?;
+        name_width = name_width.max(backup.name().width());
+        dev_width = dev_width.max(dev.width());
+        let src = backup.source().path(&storages, &device)?;
+        src_width = src_width.max(format!("{}", src.display()).width());
+        src_storage_width = src_storage_width.max(backup.source().storage.width());
+        let dest = backup.destination().path(&storages, &device)?;
+        dest_width = dest_width.max(format!("{}", dest.display()).width());
+        dest_storage_width = dest_storage_width.max(backup.destination().storage.width());
+        let cmd_name = backup.command().name();
+    }
+    // main printing
+    for ((dev, _name), backup) in &backups {
+        let device = backup.device(devices).context(format!(
+            "Couldn't find device specified in backup config {}",
+            backup.name()
+        ))?;
+        let src = backup.source().path(&storages, &device)?;
+        let dest = backup.destination().path(&storages, &device)?;
+        let cmd_name = backup.command().name();
+        writeln!(
+            writer,
+            "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {cmd_name}",
+            name = backup.name(),
+            src = backup.source().storage,
+            dest = backup.destination().storage,
+        )?;
+        if longprint {
+            let cmd_note = backup.command().note();
+            writeln!(writer, "    src : {src:<src_width$}", src = src.display())?;
+            writeln!(
+                writer,
+                "    dest: {dest:<dest_width$}",
+                dest = dest.display()
+            )?;
+            writeln!(writer, "    {note}", note = cmd_note,)?;
+        } else {
+        }
+    }
+    Ok(())
 }

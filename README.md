@@ -18,9 +18,11 @@
   - [x] use subcommand
 - [ ] backup subcommands
   - [ ] backup add
-    - [?] test for backup add
+    - [ ] test for backup add
   - [ ] backup list
+    - [ ] status printing
   - [ ] backup done
+- [ ] fancy display
 - [ ] no commit option
 
 <!-- vim: set sw=2 ts=2:  -->

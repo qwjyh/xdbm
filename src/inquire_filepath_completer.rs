@@ -1,5 +1,8 @@
+use inquire::{
+    autocompletion::{Autocomplete, Replacement},
+    CustomUserError,
+};
 use std::io::ErrorKind;
-use inquire::{autocompletion::{Autocomplete, Replacement}, CustomUserError};
 
 #[derive(Clone, Default)]
 pub struct FilePathCompleter {

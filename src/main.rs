@@ -107,8 +107,15 @@ fn main() -> Result<()> {
                     src,
                     dest,
                     cmd,
-                } => cmd_backup::cmd_backup_add(name, src, dest, cmd, repo, &config_dir, &storages)?,
-                BackupSubCommands::List {} => todo!(),
+                } => {
+                    cmd_backup::cmd_backup_add(name, src, dest, cmd, repo, &config_dir, &storages)?
+                }
+                BackupSubCommands::List {
+                    src,
+                    dest,
+                    device,
+                    long,
+                } => cmd_backup::cmd_backup_list(src, dest, device, long, &config_dir, &storages)?,
                 BackupSubCommands::Done {
                     name,
                     exit_status,
