@@ -1,17 +1,19 @@
 use std::{
     collections::HashMap,
     io::{self, stdout, Write},
-    path::PathBuf,
+    path::{PathBuf, self},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, Ok};
+use dunce::canonicalize;
 use git2::Repository;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
     add_and_commit,
     backups::{
-        self, Backup, BackupCommand, BackupCommandExt, BackupTarget, Backups, ExternallyInvoked,
+        self, Backup, BackupCommand, BackupCommandExt, BackupLog, BackupResult, BackupTarget,
+        Backups, ExternallyInvoked,
     },
     cmd_args::BackupAddCommands,
     devices::{self, Device},
@@ -28,6 +30,10 @@ pub(crate) fn cmd_backup_add(
     config_dir: &PathBuf,
     storages: &Storages,
 ) -> Result<()> {
+    trace!("Canonicalize path: {:?}", src);
+    let src = canonicalize(util::expand_tilde(src)?)?;
+    trace!("Canonicalize path: {:?}", dest);
+    let dest = canonicalize(util::expand_tilde(dest)?)?;
     let device = devices::get_device(&config_dir)?;
     let new_backup = new_backup(name, src, dest, cmd, &device, storages)?;
     let new_backup_name = new_backup.name().clone();
@@ -124,7 +130,7 @@ mod test {
                 .join("mnt")
                 .join("different"),
             &device,
-        )); 
+        ));
         let mut storages = Storages::new();
         storages.add(storage1)?;
         storages.add(storage2)?;

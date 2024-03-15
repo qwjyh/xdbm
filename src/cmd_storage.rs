@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
+use dunce::canonicalize;
 use git2::Repository;
 use inquire::{Confirm, CustomType, Text};
 use unicode_width::{self, UnicodeWidthStr};
@@ -21,6 +22,7 @@ use crate::{
         physical_drive_partition::{self, PhysicalDrivePartition},
         Storage, StorageExt, StorageType, Storages,
     },
+    util,
 };
 
 pub(crate) fn cmd_storage_add(
@@ -46,7 +48,11 @@ pub(crate) fn cmd_storage_add(
             let storage = if use_sysinfo {
                 physical_drive_partition::select_physical_storage(name, device)?
             } else {
-                manually_construct_physical_drive_partition(name, path.unwrap(), &device)?
+                manually_construct_physical_drive_partition(
+                    name,
+                    canonicalize(util::expand_tilde(path.unwrap()))?,
+                    &device,
+                )?
             };
             println!("storage: {}: {:?}", storage.name(), storage);
             Storage::PhysicalStorage(storage)
@@ -70,7 +76,8 @@ pub(crate) fn cmd_storage_add(
             }
             trace!("SubDirectory arguments: path: {:?}", path);
             // Nightly feature std::path::absolute
-            let path = path.canonicalize()?;
+            trace!("Canonicalize path: {:?}", path);
+            let path = canonicalize(util::expand_tilde(path))?;
             trace!("canonicalized: path: {:?}", path);
 
             let storage = directory::Directory::try_from_device_path(
@@ -91,6 +98,8 @@ pub(crate) fn cmd_storage_add(
                     name
                 ));
             }
+            trace!("Canonicalize path: {:?}", path);
+            let path = canonicalize(util::expand_tilde(path))?;
             let storage = storages::online_storage::OnlineStorage::new(
                 name, provider, capacity, alias, path, &device,
             );

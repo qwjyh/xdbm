@@ -15,6 +15,7 @@ env_logger = "0.10.0"
 inquire = "0.6.2"
 git2 = "0.17.2"
 dirs = "5.0"
+dunce = "1.0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 byte-unit = "4.0.19"
