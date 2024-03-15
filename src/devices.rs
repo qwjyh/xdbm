@@ -23,6 +23,7 @@ pub struct Device {
 
 impl Device {
     /// Create new `Device` of name `name`. Additional data is obtained via sysinfo.
+    /// Filling fields which one failed to get is filled with "unknown".
     pub fn new(name: String) -> Device {
         let sys = System::new();
         Device {

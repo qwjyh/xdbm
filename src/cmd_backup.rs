@@ -89,10 +89,70 @@ fn new_backup(
 
 #[cfg(test)]
 mod test {
+    use std::path::{Component, PathBuf};
+
     use anyhow::Result;
+
+    use crate::{
+        cmd_args::BackupAddCommands,
+        devices::Device,
+        storages::{online_storage::OnlineStorage, Storage, Storages},
+    };
+
+    use super::new_backup;
     #[test]
     fn test_new_backup() -> Result<()> {
-        todo!()
+        let device = Device::new("dev".to_string());
+        let storage1 = Storage::Online(OnlineStorage::new(
+            "online".to_string(),
+            "provider".to_string(),
+            1_000_000_000,
+            "alias".to_string(),
+            PathBuf::new()
+                .join(Component::RootDir)
+                .join("mnt")
+                .join("sample"),
+            &device,
+        ));
+        let storage2 = Storage::Online(OnlineStorage::new(
+            "online2".to_string(),
+            "provider".to_string(),
+            1_000_000_000,
+            "alias".to_string(),
+            PathBuf::new()
+                .join(Component::RootDir)
+                .join("mnt")
+                .join("different"),
+            &device,
+        )); 
+        let mut storages = Storages::new();
+        storages.add(storage1)?;
+        storages.add(storage2)?;
+        let cmd = BackupAddCommands::External {
+            name: "sampple_backup".to_string(),
+            note: "This is jus.to_string()t for test.".to_string(),
+        };
+        let backup = new_backup(
+            "new backup".to_string(),
+            PathBuf::new()
+                .join(Component::RootDir)
+                .join("mnt")
+                .join("sample")
+                .join("docs"),
+            PathBuf::new()
+                .join(Component::RootDir)
+                .join("mnt")
+                .join("sample")
+                .join("tmp"),
+            cmd,
+            &device,
+            &storages,
+        )?;
+        assert!(backup.source().storage == "online");
+        assert_eq!(backup.source().path, PathBuf::from("docs"));
+        assert!(backup.destination().storage == "online");
+        assert!(backup.destination().path == PathBuf::from("tmp"));
+        Ok(())
     }
 }
 
