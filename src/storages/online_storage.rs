@@ -63,7 +63,6 @@ impl StorageExt for OnlineStorage {
     fn mount_path(
         &self,
         device: &devices::Device,
-        _storages: &Storages,
     ) -> Result<std::path::PathBuf> {
         Ok(self
             .local_infos

@@ -17,7 +17,7 @@ pub fn min_parent_storage<'a>(
         .list
         .iter()
         .filter_map(|(k, storage)| {
-            let storage_path = match storage.mount_path(device, storages) {
+            let storage_path = match storage.mount_path(device) {
                 Ok(path) => path,
                 Err(_) => return None,
             };

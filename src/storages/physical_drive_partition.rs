@@ -141,7 +141,7 @@ impl StorageExt for PhysicalDrivePartition {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(&self, device: &devices::Device, _: &Storages) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
         Ok(self
             .local_infos
             .get(&device.name())

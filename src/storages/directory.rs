@@ -1,12 +1,8 @@
 //! Manipulate subdirectories of other storages, including directories.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fmt::{self, format},
-    path,
-};
+use std::{collections::HashMap, fmt, path};
 
 use crate::devices;
 use crate::util;
@@ -84,7 +80,7 @@ impl Directory {
         let parent_mount_path = self
             .parent(&storages)
             .context("Can't find parent storage")?
-            .mount_path(&device, &storages)?;
+            .mount_path(&device)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
     }
 }
@@ -102,7 +98,7 @@ impl StorageExt for Directory {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
         Ok(self
             .local_infos
             .get(&device.name())
@@ -197,7 +193,7 @@ mod test {
             storages
                 .get(&"test_name".to_string())
                 .unwrap()
-                .mount_path(&device, &storages)
+                .mount_path(&device)
                 .unwrap(),
             PathBuf::from("/mnt/sample/subdir")
         );

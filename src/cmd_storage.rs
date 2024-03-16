@@ -213,7 +213,7 @@ fn write_storages_list(
         } else {
             " "
         };
-        let path = storage.mount_path(&device, &storages).map_or_else(
+        let path = storage.mount_path(&device).map_or_else(
             |e| {
                 info!("Not found: {}", e);
                 "".to_string()

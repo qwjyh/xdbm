@@ -68,11 +68,11 @@ impl StorageExt for Storage {
         }
     }
 
-    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
         match self {
-            Self::PhysicalStorage(s) => s.mount_path(&device, &storages),
-            Self::SubDirectory(s) => s.mount_path(&device, &storages),
-            Self::Online(s) => s.mount_path(&device, &storages),
+            Self::PhysicalStorage(s) => s.mount_path(&device),
+            Self::SubDirectory(s) => s.mount_path(&device),
+            Self::Online(s) => s.mount_path(&device),
         }
     }
 
@@ -135,7 +135,7 @@ pub trait StorageExt {
 
     /// Get mount path of `self` on `device`.
     /// `storages` is a `HashMap` with key of storage name and value of the storage.
-    fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf>;
+    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf>;
 
     /// Add local info of `device` to `self`.
     fn bound_on_device(

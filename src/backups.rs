@@ -43,7 +43,7 @@ impl BackupTarget {
 
     pub fn path(&self, storages: &Storages, device: &Device) -> Result<PathBuf> {
         let parent = storages.get(&self.storage).unwrap();
-        let parent_path = parent.mount_path(device, storages)?;
+        let parent_path = parent.mount_path(device)?;
         Ok(parent_path.join(self.path.clone()))
     }
 }
