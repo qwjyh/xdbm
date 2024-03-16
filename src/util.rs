@@ -1,7 +1,6 @@
 use std::path::{self, PathBuf};
 
 use anyhow::{Context, Result};
-use chrono::format;
 
 use crate::{
     devices::Device,
@@ -29,7 +28,7 @@ pub fn min_parent_storage<'a>(
                 Some((k, diff))
             }
         })
-        .min_by_key(|(k, pathdiff)| {
+        .min_by_key(|(_k, pathdiff)| {
             pathdiff
                 .components()
                 .collect::<Vec<path::Component>>()
@@ -59,5 +58,72 @@ pub fn format_summarized_duration(dt: chrono::Duration) -> String {
         format!("{}h", dt.num_hours())
     } else {
         format!("{}min", dt.num_minutes())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
+    use std::path::PathBuf;
+
+    use crate::{
+        devices::Device,
+        storages::{online_storage::OnlineStorage, Storage, StorageExt, Storages},
+    };
+
+    use super::{expand_tilde, min_parent_storage};
+
+    #[test]
+    fn test_min_parent_storage() -> Result<()> {
+        let device = Device::new("name".to_string());
+        let storage1 = Storage::Online(OnlineStorage::new(
+            "storage_name".to_string(),
+            "provider".to_string(),
+            1_000_000,
+            "alias".to_string(),
+            PathBuf::from("/mnt"),
+            &device,
+        ));
+        let storage2 = Storage::Online(OnlineStorage::new(
+            "root".to_string(),
+            "provider".to_string(),
+            1_000_000,
+            "root".to_string(),
+            PathBuf::from("/"),
+            &device,
+        ));
+        let mut storages = Storages::new();
+        storages.add(storage1)?;
+        storages.add(storage2)?;
+
+        let sample_target = PathBuf::from("/mnt/docs");
+        let parent = min_parent_storage(&sample_target, &storages, &device);
+        assert_eq!(parent.clone().unwrap().0.name(), "storage_name");
+        assert_eq!(parent.unwrap().1, PathBuf::from("docs"));
+
+        let sample_target_2 = PathBuf::from("/home/user/.config");
+        let parent_2 = min_parent_storage(&sample_target_2, &storages, &device).unwrap();
+        assert_eq!(parent_2.clone().0.name(), "root");
+        assert_eq!(parent_2.1, PathBuf::from("home/user/.config"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_expand_tilde() -> Result<()> {
+        assert!(expand_tilde(PathBuf::from("/aaa/bbb/ccc"))
+            .unwrap()
+            .eq(&PathBuf::from("/aaa/bbb/ccc")));
+        let expanded = expand_tilde(PathBuf::from("~/aaa/bbb/ccc"));
+        match expanded {
+            Ok(path) => assert!(path.eq(&dirs::home_dir().unwrap().join("aaa/bbb/ccc"))),
+            Err(_) => (),
+        }
+        let expanded = expand_tilde(PathBuf::from("aaa/~/bbb"));
+        match expanded {
+            Ok(path) => assert_eq!(path, PathBuf::from("aaa/~/bbb")),
+            Err(_) => (),
+        }
+        Ok(())
     }
 }
