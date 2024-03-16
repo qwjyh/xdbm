@@ -87,7 +87,7 @@ impl StorageExt for OnlineStorage {
         Ok(())
     }
 
-    fn parent(&self, storages: &Storages) -> Option<&Storage> {
+    fn parent(&self, _storages: &Storages) -> Option<&Storage> {
         None
     }
 }

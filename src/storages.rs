@@ -1,9 +1,10 @@
 //! Manipulates storages.
 
-use crate::storages::directory::Directory;
-use crate::storages::online_storage::OnlineStorage;
-use crate::storages::physical_drive_partition::PhysicalDrivePartition;
-use crate::{devices, storages};
+use crate::devices;
+use crate::storages::{
+    directory::Directory, online_storage::OnlineStorage,
+    physical_drive_partition::PhysicalDrivePartition,
+};
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use core::panic;

@@ -1,7 +1,12 @@
 [package]
 name = "xdbm"
 version = "0.1.0"
+authors = ["qwjyh <urataw421@gmail.com>"]
 edition = "2021"
+description = "Cross device backup manager, to manage backups on several storages mounted on multiple devices."
+homepage = "https://github.com/qwjyh/xdbm"
+repository = "https://github.com/qwjyh/xdbm"
+license = "MIT OR Apache-1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

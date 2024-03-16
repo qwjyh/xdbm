@@ -1,7 +1,7 @@
 //! Init subcommand.
 //! Initialize xdbm for the device.
 
-use crate::backups::{backups_file, Backups};
+use crate::backups::Backups;
 use crate::storages::{Storages, STORAGESFILE};
 use crate::{
     add_and_commit, backups, full_status, get_devices, write_devices, Device, DEVICESFILE,

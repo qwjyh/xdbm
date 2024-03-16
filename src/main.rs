@@ -1,29 +1,28 @@
 //! # Main types
 //! * [Device]: represents PC. module [devices]
-//! * [Storage]: all storages. module [storages]
-//!     * [physical_drive_partition::PhysicalDrivePartition]: partition on a physical disk. module [storages::physical_drive_partition]
-//!     * [directory::Directory]: sub-directory of other storages. module [storages::directory]
-//!     * [online_storage::OnlineStorage]: online storage like Google Drive. module [storages::online_storage]
-//! * [storages::local_info::LocalInfo]: stores [Device] specific common data for [Storage]s.
-//!
+//! * [storages::Storage]: all storages. module [storages]
+//!     * [storages::physical_drive_partition::PhysicalDrivePartition]: partition on a physical disk. module [storages::physical_drive_partition]
+//!     * [storages::directory::Directory]: sub-directory of other storages. module [storages::directory]
+//!     * [storages::online_storage::OnlineStorage]: online storage like Google Drive. module [storages::online_storage]
+//!     * [storages::Storages] for list of [storages::Storage]
+//! * [storages::local_info::LocalInfo]: stores [Device] specific common data for [storages::Storage]s.
+//! * [backups::Backup] for backup configuration and its logs.
+//!     * [backups::BackupTarget] source and destination
+//!     * [backups::BackupLog] backup log
 
 #[macro_use]
 extern crate log;
 
 extern crate dirs;
 
-use anyhow::{anyhow, Context, Result};
-use clap::{CommandFactory, Parser};
+use anyhow::{Context, Result};
+use clap::Parser;
 use git2::{Commit, Oid, Repository};
 use std::path::Path;
 use std::path::{self, PathBuf};
 use storages::Storages;
 
 use crate::cmd_args::{BackupSubCommands, Cli, Commands, StorageCommands};
-use crate::storages::{
-    directory, local_info, online_storage, physical_drive_partition, Storage, StorageExt,
-    StorageType, STORAGESFILE,
-};
 use devices::{Device, DEVICESFILE, *};
 
 mod backups;

@@ -1,4 +1,15 @@
-# TODO:
+# xdbm
+_Cross device backup manager_,
+to manage backups on several storages mounted on multiple devices with a single repository.
+
+## Usage
+1. `xdbm init` to setup new device(i.e. PC).
+2. `xdbm storage add` to add storages, or `xdbm storage bind` to make existing storages available on new device.
+3. `xdbm backup add` to add new backup configuration.
+4. `xdbm backup done` to tell xdbm to write backup execution datetime.
+5. `xdbm storage list` and `xdbm backup list` to see their status.
+
+## TODO:
 - [x] split subcommands to functions
 - [x] write test for init subcommand
   - [x] write test with existing repo

@@ -1,3 +1,6 @@
+//! Backup config and its history.
+//!
+
 use core::panic;
 use std::{
     collections::HashMap,
@@ -11,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     devices::Device,
-    storages::{self, Storage, StorageExt, Storages},
+    storages::{StorageExt, Storages},
 };
 
 /// Directory to store backup configs for each devices.
@@ -26,7 +29,7 @@ pub fn backups_file(device: &Device) -> PathBuf {
 /// Targets for backup source or destination.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupTarget {
-    /// `name()` of [`Storage`].
+    /// `name()` of [`crate::storages::Storage`].
     /// Use `String` for serialization/deserialization.
     pub storage: String,
     /// Relative path to the `storage`.

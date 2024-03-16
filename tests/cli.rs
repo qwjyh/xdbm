@@ -1,8 +1,8 @@
 mod cmd_init {
     use std::fs::DirBuilder;
 
-    use anyhow::{anyhow, Ok, Result};
-    use assert_cmd::{assert::OutputAssertExt, cargo::CommandCargoExt, Command};
+    use anyhow::{Ok, Result};
+    use assert_cmd::{assert::OutputAssertExt, Command};
     use git2::Repository;
     use log::trace;
     use predicates::prelude::predicate;

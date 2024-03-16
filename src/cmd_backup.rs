@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     io::{self, stdout, Write},
-    path::{self, PathBuf},
+    path::{ PathBuf},
 };
 
 use anyhow::{anyhow, Context, Ok, Result};

@@ -1,7 +1,7 @@
 //! Device specific common data for storages.
 
 use serde::{Deserialize, Serialize};
-use std::path::{self, PathBuf};
+use std::path::PathBuf;
 
 /// Store local (device-specific) information
 ///
@@ -10,11 +10,11 @@ use std::path::{self, PathBuf};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LocalInfo {
     alias: String,
-    mount_path: path::PathBuf,
+    mount_path: PathBuf,
 }
 
 impl LocalInfo {
-    pub fn new(alias: String, mount_path: path::PathBuf) -> LocalInfo {
+    pub fn new(alias: String, mount_path: PathBuf) -> LocalInfo {
         LocalInfo { alias, mount_path }
     }
 
@@ -22,7 +22,7 @@ impl LocalInfo {
         self.alias.clone() // ?
     }
 
-    pub fn mount_path(&self) -> path::PathBuf {
+    pub fn mount_path(&self) -> PathBuf {
         self.mount_path.clone()
     }
 }

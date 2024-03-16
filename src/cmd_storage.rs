@@ -14,13 +14,12 @@ use unicode_width::{self, UnicodeWidthStr};
 
 use crate::{
     add_and_commit,
-    cmd_args::{Cli, StorageAddCommands},
+    cmd_args::StorageAddCommands,
     devices::{self, Device},
-    inquire_filepath_completer::FilePathCompleter,
     storages::{
         self, directory, local_info,
         physical_drive_partition::{self, PhysicalDrivePartition},
-        Storage, StorageExt, StorageType, Storages,
+        Storage, StorageExt, Storages,
     },
     util,
 };
