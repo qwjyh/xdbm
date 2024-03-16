@@ -1,10 +1,11 @@
 use std::{
     collections::HashMap,
     io::{self, stdout, Write},
-    path::{PathBuf, self},
+    path::{self, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result, Ok};
+use anyhow::{anyhow, Context, Ok, Result};
+use chrono::Local;
 use dunce::canonicalize;
 use git2::Repository;
 use unicode_width::UnicodeWidthStr;
@@ -235,6 +236,7 @@ fn write_backups_list(
     let mut src_storage_width = 0;
     let mut dest_width = 0;
     let mut dest_storage_width = 0;
+    let mut cmd_name_width = 0;
     // get widths
     for ((dev, _name), backup) in &backups {
         let device = backup.device(devices).context(format!(
@@ -250,6 +252,7 @@ fn write_backups_list(
         dest_width = dest_width.max(format!("{}", dest.display()).width());
         dest_storage_width = dest_storage_width.max(backup.destination().storage.width());
         let cmd_name = backup.command().name();
+        cmd_name_width = cmd_name_width.max(cmd_name.width());
     }
     // main printing
     for ((dev, _name), backup) in &backups {
@@ -260,9 +263,18 @@ fn write_backups_list(
         let src = backup.source().path(&storages, &device)?;
         let dest = backup.destination().path(&storages, &device)?;
         let cmd_name = backup.command().name();
+        let last_backup_elapsed = match backup.last_backup() {
+            Some(log) => {
+                let time = Local::now() - log.datetime;
+                util::format_summarized_duration(time)
+            }
+            None => {
+                format!("---")
+            }
+        };
         writeln!(
             writer,
-            "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {cmd_name}",
+            "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {last_backup_elapsed}",
             name = backup.name(),
             src = backup.source().storage,
             dest = backup.destination().storage,
@@ -275,9 +287,41 @@ fn write_backups_list(
                 "    dest: {dest:<dest_width$}",
                 dest = dest.display()
             )?;
-            writeln!(writer, "    {note}", note = cmd_note,)?;
+            writeln!(
+                writer,
+                "  {cmd_name:<cmd_name_width$}({note})",
+                note = cmd_note,
+            )?;
         } else {
         }
     }
+    Ok(())
+}
+
+pub fn cmd_backup_done(
+    name: String,
+    exit_status: u64,
+    log: Option<String>,
+    repo: Repository,
+    config_dir: &PathBuf,
+) -> Result<()> {
+    let device = devices::get_device(&config_dir)?;
+    let mut backups = Backups::read(&config_dir, &device)?;
+    let backup = backups
+        .get_mut(&name)
+        .context(format!("Failed to get backup with name {}", name))?;
+    trace!("Got backup: {:?}", backup);
+    let backup_name = backup.name().clone();
+    let status = BackupResult::from_exit_code(exit_status);
+    let new_log = BackupLog::new_with_current_time(status, log.unwrap_or("".to_string()));
+    trace!("New backup log: {:?}", new_log);
+    backup.add_log(new_log);
+    trace!("Added");
+    backups.write(&config_dir, &device)?;
+    add_and_commit(
+        &repo,
+        &backups::backups_file(&device),
+        &format!("Done backup: {}", backup_name),
+    )?;
     Ok(())
 }

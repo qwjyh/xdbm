@@ -59,7 +59,7 @@ impl PhysicalDrivePartition {
         let fs = disk.file_system();
         trace!("fs: {:?}", fs);
         let fs = std::str::from_utf8(fs)?;
-        let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf().canonicalize()?);
+        let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
         Ok(PhysicalDrivePartition {
             name: name,
             kind: format!("{:?}", disk.kind()),

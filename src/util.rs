@@ -1,5 +1,8 @@
 use std::path::{self, PathBuf};
 
+use anyhow::{Context, Result};
+use chrono::format;
+
 use crate::{
     devices::Device,
     storages::{Storage, StorageExt, Storages},
@@ -34,4 +37,27 @@ pub fn min_parent_storage<'a>(
         })?;
     let storage = storages.get(name)?;
     Some((storage, pathdiff))
+}
+
+/// Expand first `~` in path as `home_dir`.
+pub fn expand_tilde(path: PathBuf) -> Result<PathBuf> {
+    if path.components().next() == Some(path::Component::Normal("~".as_ref())) {
+        let mut expanded_path = dirs::home_dir().context("Failed to expand home directory.")?;
+        for c in path.components().skip(1) {
+            expanded_path.push(c)
+        }
+        Ok(expanded_path)
+    } else {
+        Ok(path)
+    }
+}
+
+pub fn format_summarized_duration(dt: chrono::Duration) -> String {
+    if dt.num_days() > 0 {
+        format!("{}d", dt.num_days())
+    } else if dt.num_hours() > 0 {
+        format!("{}h", dt.num_hours())
+    } else {
+        format!("{}min", dt.num_minutes())
+    }
 }

@@ -101,9 +101,21 @@ impl BackupCommandExt for ExternallyInvoked {
 /// Backup execution log.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupLog {
-    datetime: DateTime<Local>,
+    pub datetime: DateTime<Local>,
     status: BackupResult,
     log: String,
+}
+
+impl BackupLog {
+    pub fn new_with_current_time(status: BackupResult, log: String) -> BackupLog {
+        let timestamp = Local::now();
+        trace!("Generating timestamp: {:?}", timestamp);
+        BackupLog {
+            datetime: timestamp,
+            status,
+            log,
+        }
+    }
 }
 
 /// Result of backup.
@@ -111,6 +123,16 @@ pub struct BackupLog {
 pub enum BackupResult {
     Success,
     Failure,
+}
+
+impl BackupResult {
+    pub fn from_exit_code(code: u64) -> Self {
+        if code == 0 {
+            Self::Success
+        } else {
+            Self::Failure
+        }
+    }
 }
 
 /// Backup source, destination, command and logs.
@@ -164,6 +186,15 @@ impl Backup {
     pub fn command(&self) -> &BackupCommand {
         &self.command
     }
+
+    pub fn add_log(&mut self, newlog: BackupLog) -> () {
+        self.logs.push(newlog)
+    }
+
+    /// Get the last backup.
+    pub fn last_backup(&self) -> Option<&BackupLog> {
+        self.logs.iter().max_by_key(|log| log.datetime)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -181,6 +212,10 @@ impl Backups {
 
     pub fn get(&self, name: &String) -> Option<&Backup> {
         self.list.get(name)
+    }
+
+    pub fn get_mut(&mut self, name: &String) -> Option<&mut Backup> {
+        self.list.get_mut(name)
     }
 
     /// Add new [`Backup`].

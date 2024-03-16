@@ -20,8 +20,8 @@
   - [ ] backup add
     - [ ] test for backup add
   - [ ] backup list
-    - [ ] status printing
-  - [ ] backup done
+    - [x] status printing
+  - [x] backup done
 - [ ] fancy display
 - [ ] no commit option
 

@@ -50,7 +50,7 @@ pub(crate) fn cmd_storage_add(
             } else {
                 manually_construct_physical_drive_partition(
                     name,
-                    canonicalize(util::expand_tilde(path.unwrap()))?,
+                    canonicalize(util::expand_tilde(path.unwrap())?)?,
                     &device,
                 )?
             };
@@ -77,7 +77,7 @@ pub(crate) fn cmd_storage_add(
             trace!("SubDirectory arguments: path: {:?}", path);
             // Nightly feature std::path::absolute
             trace!("Canonicalize path: {:?}", path);
-            let path = canonicalize(util::expand_tilde(path))?;
+            let path = canonicalize(util::expand_tilde(path)?)?;
             trace!("canonicalized: path: {:?}", path);
 
             let storage = directory::Directory::try_from_device_path(
@@ -99,7 +99,7 @@ pub(crate) fn cmd_storage_add(
                 ));
             }
             trace!("Canonicalize path: {:?}", path);
-            let path = canonicalize(util::expand_tilde(path))?;
+            let path = canonicalize(util::expand_tilde(path)?)?;
             let storage = storages::online_storage::OnlineStorage::new(
                 name, provider, capacity, alias, path, &device,
             );

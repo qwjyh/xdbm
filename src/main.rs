@@ -120,7 +120,7 @@ fn main() -> Result<()> {
                     name,
                     exit_status,
                     log,
-                } => todo!(),
+                } => cmd_backup::cmd_backup_done(name, exit_status, log, repo, &config_dir)?,
             }
         }
     }
