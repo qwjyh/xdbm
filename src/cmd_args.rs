@@ -55,6 +55,11 @@ pub(crate) enum Commands {
 
     /// Check config files.
     Check {},
+
+    /// Generate completion script.
+    Completion {
+        shell: clap_complete::Shell,
+    }
 }
 
 #[derive(Args, Debug)]

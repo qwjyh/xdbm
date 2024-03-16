@@ -31,6 +31,7 @@ mod cmd_backup;
 mod cmd_init;
 mod cmd_storage;
 mod cmd_sync;
+mod cmd_completion;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
@@ -121,6 +122,9 @@ fn main() -> Result<()> {
                     log,
                 } => cmd_backup::cmd_backup_done(name, exit_status, log, repo, &config_dir)?,
             }
+        }
+        Commands::Completion { shell } => {
+            cmd_completion::cmd_completion(shell)?
         }
     }
     full_status(&Repository::open(&config_dir)?)?;
