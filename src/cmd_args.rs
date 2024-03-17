@@ -161,12 +161,16 @@ pub(crate) enum BackupSubCommands {
     /// Print configured backups.
     /// Filter by src/dest storage or device.
     List {
+        /// Filter by backup source storage name.
         #[arg(long)]
         src: Option<String>,
+        /// Filter by backup destination storage name.
         #[arg(long)]
         dest: Option<String>,
+        /// Filter by device where the backup is configured.
         #[arg(long)]
         device: Option<String>,
+        /// Long display with more information.
         #[arg(short, long)]
         long: bool,
     },
