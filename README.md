@@ -28,9 +28,9 @@ to manage backups on several storages mounted on multiple devices with a single 
 - [x] reorganize cmd option for storage
   - [x] use subcommand
 - [ ] backup subcommands
-  - [ ] backup add
-    - [ ] test for backup add
-  - [ ] backup list
+  - [x] backup add
+    - [x] test for backup add
+  - [x] backup list
     - [x] status printing
   - [x] backup done
 - [ ] fancy display

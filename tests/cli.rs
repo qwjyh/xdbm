@@ -1,4 +1,4 @@
-mod cmd_init {
+mod integrated_test {
     use std::fs::DirBuilder;
 
     use anyhow::{Ok, Result};
@@ -8,8 +8,9 @@ mod cmd_init {
     use predicates::prelude::predicate;
 
     #[test]
-    fn init_with_tmpdir() -> Result<()> {
+    fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
+        // init
         let mut cmd = Command::cargo_bin("xdbm")?;
         cmd.arg("-c")
             .arg(config_dir.path())
@@ -20,6 +21,81 @@ mod cmd_init {
             std::fs::read_to_string(config_dir.path().join("devname"))?,
             "testdev\n"
         );
+
+        // storage add
+        let storage = assert_fs::TempDir::new()?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir.path())
+            .arg("storage")
+            .arg("add")
+            .arg("online")
+            .arg("--provider")
+            .arg("sample_provider")
+            .arg("--capacity")
+            .arg("1000000000000")
+            .arg("--alias")
+            .arg("alias")
+            .arg("online_storage")
+            .arg(storage.path())
+            .assert()
+            .success();
+
+        // storage list
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir.path())
+            .arg("storage")
+            .arg("list")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("online_storage"));
+
+        // backup add
+        let target_from = storage.join("foo/bar");
+        let target_to = storage.join("aaa/bbb/ccc");
+        DirBuilder::new()
+            .recursive(true)
+            .create(target_from.clone())?;
+        DirBuilder::new()
+            .recursive(true)
+            .create(target_to.clone())?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(target_from)
+            .arg("--dest")
+            .arg(target_to)
+            .arg("sample_backup")
+            .arg("external")
+            .arg("rsync")
+            .arg("with some note")
+            .assert()
+            .success();
+
+        // backup list
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir.path())
+            .arg("backup")
+            .arg("list")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("sample_backup"));
+
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir.path())
+            .arg("backup")
+            .arg("done")
+            .arg("sample_backup")
+            .arg("0")
+            .assert()
+            .success();
+
         Ok(())
     }
 
