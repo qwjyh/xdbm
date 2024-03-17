@@ -1,6 +1,6 @@
 # xdbm
 _Cross device backup manager_,
-to manage backups on several storages mounted on multiple devices with a single repository.
+which manages backups on several storages mounted on multiple devices with a single repository.
 
 ## Usage
 1. `xdbm init` to setup new device(i.e. PC).
@@ -8,6 +8,11 @@ to manage backups on several storages mounted on multiple devices with a single 
 3. `xdbm backup add` to add new backup configuration.
 4. `xdbm backup done` to tell xdbm to write backup execution datetime.
 5. `xdbm storage list` and `xdbm backup list` to see their status.
+
+### Hints
+- `xdbm path` to see the path of repository. Use `git` to sync it among the devices.
+- `xdbm completion <SHELL>` to generate completion scripts for shells.
+- Give `--help` to see helps on the commands.
 
 ## TODO:
 - [x] split subcommands to functions
@@ -27,13 +32,14 @@ to manage backups on several storages mounted on multiple devices with a single 
   - [x] check that all parents exist
 - [x] reorganize cmd option for storage
   - [x] use subcommand
-- [ ] backup subcommands
+- [x] backup subcommands
   - [x] backup add
     - [x] test for backup add
   - [x] backup list
     - [x] status printing
   - [x] backup done
 - [ ] fancy display
+- [ ] json output
 - [ ] no commit option
 
 <!-- vim: set sw=2 ts=2:  -->

@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     io::{self, stdout, Write},
-    path::{PathBuf, Path},
+    path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
@@ -297,7 +297,7 @@ mod test {
         storages.add(storage2)?;
         let cmd = BackupAddCommands::External {
             name: "sampple_backup".to_string(),
-            note: "This is jus.to_string()t for test.".to_string(),
+            note: "This is just for test.".to_string(),
         };
         let backup = new_backup(
             "new backup".to_string(),
