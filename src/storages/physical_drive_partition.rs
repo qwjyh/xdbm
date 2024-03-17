@@ -5,9 +5,8 @@ use crate::devices::Device;
 use crate::storages::{Storage, StorageExt, Storages};
 use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
-use inquire::Text;
 use serde::{Deserialize, Serialize};
-use std::path;
+use std::path::{self, Path};
 use std::{collections::HashMap, fmt};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
@@ -61,7 +60,7 @@ impl PhysicalDrivePartition {
         let fs = std::str::from_utf8(fs)?;
         let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
         Ok(PhysicalDrivePartition {
-            name: name,
+            name,
             kind: format!("{:?}", disk.kind()),
             capacity: disk.total_space(),
             fs: fs.to_string(),
@@ -71,12 +70,8 @@ impl PhysicalDrivePartition {
         })
     }
 
-    pub fn bind_device(
-        &mut self,
-        disk: &sysinfo::Disk,
-        config_dir: &std::path::PathBuf,
-    ) -> Result<()> {
-        let device = devices::get_device(&config_dir)?;
+    pub fn bind_device(&mut self, disk: &sysinfo::Disk, config_dir: &Path) -> Result<()> {
+        let device = devices::get_device(config_dir)?;
         let alias = match disk.name().to_str() {
             Some(s) => s.to_string(),
             None => return Err(anyhow!("Failed to convert storage name to valid str.")),
@@ -98,33 +93,6 @@ impl PhysicalDrivePartition {
 
     pub fn kind(&self) -> &String {
         &self.kind
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{
-        devices::Device,
-        storages::{local_info::LocalInfo, StorageExt},
-    };
-    use std::path::PathBuf;
-
-    use super::PhysicalDrivePartition;
-
-    #[test]
-    fn test_new() {
-        let localinfo = LocalInfo::new("alias".to_string(), PathBuf::from("/mnt/sample"));
-        let storage = PhysicalDrivePartition::new(
-            "name".to_string(),
-            "SSD".to_string(),
-            100,
-            "ext_4".to_string(),
-            true,
-            localinfo,
-            &Device::new("test_device".to_string()),
-        );
-        assert_eq!(storage.name(), "name");
-        assert_eq!(storage.capacity(), Some(100));
     }
 }
 
@@ -203,7 +171,7 @@ pub fn select_physical_storage(
         trace!("{:?}", disk)
     }
     let disk = select_sysinfo_disk(&sys_disks)?;
-    let storage = PhysicalDrivePartition::try_from_sysinfo_disk(&disk, disk_name, device)?;
+    let storage = PhysicalDrivePartition::try_from_sysinfo_disk(disk, disk_name, device)?;
     Ok(storage)
 }
 
@@ -213,10 +181,7 @@ fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
         .iter()
         .enumerate()
         .map(|(i, disk)| {
-            let name = match disk.name().to_str() {
-                Some(s) => s,
-                None => "",
-            };
+            let name = disk.name().to_str().unwrap_or("");
             let fs: &str = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
             let kind = format!("{:?}", disk.kind());
             let mount_path = disk.mount_point();
@@ -245,4 +210,31 @@ fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
         .context("no disk matched with selected one.")?;
     trace!("selected disk: {:?}", disk);
     Ok(disk)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        devices::Device,
+        storages::{local_info::LocalInfo, StorageExt},
+    };
+    use std::path::PathBuf;
+
+    use super::PhysicalDrivePartition;
+
+    #[test]
+    fn test_new() {
+        let localinfo = LocalInfo::new("alias".to_string(), PathBuf::from("/mnt/sample"));
+        let storage = PhysicalDrivePartition::new(
+            "name".to_string(),
+            "SSD".to_string(),
+            100,
+            "ext_4".to_string(),
+            true,
+            localinfo,
+            &Device::new("test_device".to_string()),
+        );
+        assert_eq!(storage.name(), "name");
+        assert_eq!(storage.capacity(), Some(100));
+    }
 }

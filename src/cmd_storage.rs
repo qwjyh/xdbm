@@ -27,14 +27,14 @@ use crate::{
 pub(crate) fn cmd_storage_add(
     args: StorageAddCommands,
     repo: Repository,
-    config_dir: &PathBuf,
+    config_dir: &Path,
 ) -> Result<()> {
     trace!("Storage Add with args: {:?}", args);
     // Get storages
-    let mut storages = Storages::read(&config_dir)?;
+    let mut storages = Storages::read(config_dir)?;
     trace!("found storages: {:?}", storages);
 
-    let device = devices::get_device(&config_dir)?;
+    let device = devices::get_device(config_dir)?;
     let storage = match args {
         StorageAddCommands::Physical { name, path } => {
             if !is_unique_name(&name, &storages) {
@@ -54,7 +54,7 @@ pub(crate) fn cmd_storage_add(
                 )?
             };
             println!("storage: {}: {:?}", storage.name(), storage);
-            Storage::PhysicalStorage(storage)
+            Storage::Physical(storage)
         }
         StorageAddCommands::Directory {
             name,
@@ -113,12 +113,12 @@ pub(crate) fn cmd_storage_add(
     trace!("updated storages: {:?}", storages);
 
     // write to file
-    storages.write(&config_dir)?;
+    storages.write(config_dir)?;
 
     // commit
     add_and_commit(
         &repo,
-        &Path::new(storages::STORAGESFILE),
+        Path::new(storages::STORAGESFILE),
         &format!(
             "Add new storage({}): {}",
             new_storage_type, new_storage_name
@@ -163,19 +163,19 @@ fn manually_construct_physical_drive_partition(
         fs,
         is_removable,
         local_info,
-        &device,
+        device,
     ))
 }
 
-pub(crate) fn cmd_storage_list(config_dir: &PathBuf, with_note: bool) -> Result<()> {
+pub(crate) fn cmd_storage_list(config_dir: &Path, with_note: bool) -> Result<()> {
     // Get storages
-    let storages = Storages::read(&config_dir)?;
+    let storages = Storages::read(config_dir)?;
     trace!("found storages: {:?}", storages);
     if storages.list.is_empty() {
         println!("No storages found");
         return Ok(());
     }
-    let device = devices::get_device(&config_dir)?;
+    let device = devices::get_device(config_dir)?;
     let mut stdout = io::BufWriter::new(io::stdout());
     write_storages_list(&mut stdout, &storages, &device, with_note)?;
     stdout.flush()?;
@@ -190,12 +190,12 @@ fn write_storages_list(
 ) -> Result<()> {
     let name_width = storages
         .list
-        .iter()
-        .map(|(_k, v)| v.name().width())
+        .values()
+        .map(|v| v.name().width())
         .max()
         .unwrap();
     trace!("name widths: {}", name_width);
-    for (_k, storage) in &storages.list {
+    for storage in storages.list.values() {
         let size_str = match storage.capacity() {
             Some(b) => Byte::from_bytes(b.into())
                 .get_appropriate_unit(true)
@@ -203,7 +203,7 @@ fn write_storages_list(
                 .to_string(),
             None => "".to_string(),
         };
-        let isremovable = if let Storage::PhysicalStorage(s) = storage {
+        let isremovable = if let Storage::Physical(s) = storage {
             if s.is_removable() {
                 "+"
             } else {
@@ -212,7 +212,7 @@ fn write_storages_list(
         } else {
             " "
         };
-        let path = storage.mount_path(&device).map_or_else(
+        let path = storage.mount_path(device).map_or_else(
             |e| {
                 info!("Not found: {}", e);
                 "".to_string()
@@ -220,7 +220,7 @@ fn write_storages_list(
             |v| v.display().to_string(),
         );
         let parent_name = if let Storage::SubDirectory(s) = storage {
-            s.parent(&storages)
+            s.parent(storages)
                 .context(format!("Failed to get parent of storage {}", s))?
                 .name()
         } else {
@@ -238,7 +238,7 @@ fn write_storages_list(
         )?;
         if long_display {
             let note = match storage {
-                Storage::PhysicalStorage(s) => s.kind(),
+                Storage::Physical(s) => s.kind(),
                 Storage::SubDirectory(s) => &s.notes,
                 Storage::Online(s) => &s.provider,
             };
@@ -253,11 +253,11 @@ pub(crate) fn cmd_storage_bind(
     new_alias: String,
     mount_point: PathBuf,
     repo: Repository,
-    config_dir: &PathBuf,
+    config_dir: &Path,
 ) -> Result<()> {
-    let device = devices::get_device(&config_dir)?;
+    let device = devices::get_device(config_dir)?;
     // get storages
-    let mut storages = Storages::read(&config_dir)?;
+    let mut storages = Storages::read(config_dir)?;
     let commit_comment = {
         // find matching storage
         let storage = &mut storages
@@ -284,11 +284,11 @@ pub(crate) fn cmd_storage_bind(
     trace!("bound new system name to the storage");
     trace!("storages: {:#?}", storages);
 
-    storages.write(&config_dir)?;
+    storages.write(config_dir)?;
     // commit
     add_and_commit(
         &repo,
-        &Path::new(storages::STORAGESFILE),
+        Path::new(storages::STORAGESFILE),
         &format!("Bound new storage name to storage ({})", commit_comment),
     )?;
     println!("Bound new storage name to storage ({})", commit_comment);

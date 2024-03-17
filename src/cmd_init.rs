@@ -15,7 +15,7 @@ use std::io::{BufWriter, Write};
 use std::path::{self, Path, PathBuf};
 
 fn clone_repo(
-    repo_url: &String,
+    repo_url: &str,
     use_sshagent: bool,
     ssh_key: Option<PathBuf>,
     config_dir: &path::PathBuf,
@@ -24,7 +24,7 @@ fn clone_repo(
     if ssh_key.is_none() && !use_sshagent {
         info!("No authentication will be used.");
         info!("Use either ssh_key or ssh-agent to access private repository");
-        return Ok(Repository::clone(&repo_url, &config_dir)?);
+        return Ok(Repository::clone(repo_url, config_dir)?);
     }
 
     // using credentials
@@ -68,7 +68,7 @@ fn clone_repo(
     let mut builder = git2::build::RepoBuilder::new();
     builder.fetch_options(fo);
 
-    Ok(builder.clone(&repo_url, config_dir)?)
+    Ok(builder.clone(repo_url, config_dir)?)
 }
 
 pub(crate) fn cmd_init(
@@ -91,22 +91,21 @@ pub(crate) fn cmd_init(
     let repo = match repo_url {
         Some(repo_url) => {
             trace!("repo: {}", repo_url);
-            let repo = clone_repo(&repo_url, use_sshagent, ssh_key, config_dir)?;
-            repo
+            clone_repo(&repo_url, use_sshagent, ssh_key, config_dir)?
         }
         None => {
             trace!("No repo provided");
             println!("Initializing for the first device...");
 
             // create repository
-            let repo = Repository::init(&config_dir)?;
+            let repo = Repository::init(config_dir)?;
 
             // set up gitignore
             {
-                let f = File::create(&config_dir.join(".gitignore"))?;
+                let f = File::create(config_dir.join(".gitignore"))?;
                 {
                     let mut buf = BufWriter::new(f);
-                    buf.write("devname".as_bytes())?;
+                    buf.write_all("devname".as_bytes())?;
                 }
                 add_and_commit(&repo, Path::new(".gitignore"), "Add devname to gitignore.")?;
                 full_status(&repo)?;
@@ -115,7 +114,7 @@ pub(crate) fn cmd_init(
             // TDOO: wrap up below into one commit?
             // set up devices.yml
             let devices: Vec<Device> = vec![];
-            write_devices(&config_dir, devices)?;
+            write_devices(config_dir, devices)?;
             add_and_commit(
                 &repo,
                 Path::new(DEVICESFILE),
@@ -123,7 +122,7 @@ pub(crate) fn cmd_init(
             )?;
             // set up storages.yml
             let storages = Storages::new();
-            storages.write(&config_dir)?;
+            storages.write(config_dir)?;
             add_and_commit(
                 &repo,
                 Path::new(STORAGESFILE),
@@ -131,7 +130,7 @@ pub(crate) fn cmd_init(
             )?;
 
             // set up directory for backups
-            DirBuilder::new().create(&config_dir.join(backups::BACKUPSDIR))?;
+            DirBuilder::new().create(config_dir.join(backups::BACKUPSDIR))?;
 
             repo
         }
@@ -155,7 +154,7 @@ pub(crate) fn cmd_init(
 
     // Add new device to devices.yml
     {
-        let mut devices: Vec<Device> = get_devices(&config_dir)?;
+        let mut devices: Vec<Device> = get_devices(config_dir)?;
         trace!("devices: {:?}", devices);
         if devices.iter().any(|x| x.name() == device.name()) {
             error!("Device name `{}` is already used.", device.name());
@@ -164,21 +163,21 @@ pub(crate) fn cmd_init(
         }
         devices.push(device.clone());
         trace!("Devices: {:?}", devices);
-        write_devices(&config_dir, devices)?;
+        write_devices(config_dir, devices)?;
     }
     full_status(&repo)?;
 
     // commit
     add_and_commit(
         &repo,
-        &Path::new(DEVICESFILE),
+        Path::new(DEVICESFILE),
         &format!("Add new device: {}", &device.name()),
     )?;
 
     // backups/[device].yml
     {
         let backups = Backups::new();
-        backups.write(&config_dir, &device)?;
+        backups.write(config_dir, &device)?;
     }
     add_and_commit(
         &repo,

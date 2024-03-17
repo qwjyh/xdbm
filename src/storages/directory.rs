@@ -52,7 +52,7 @@ impl Directory {
         device: &devices::Device,
         storages: &Storages,
     ) -> Result<Directory> {
-        let (parent, diff_path) = util::min_parent_storage(&path, storages, &device)
+        let (parent, diff_path) = util::min_parent_storage(&path, storages, device)
             .context("Failed to compare diff of paths")?;
         trace!("Selected parent: {}", parent.name());
         let local_info = LocalInfo::new(alias, path);
@@ -78,9 +78,9 @@ impl Directory {
     /// Resolve mount path of directory with current device.
     fn mount_path(&self, device: &devices::Device, storages: &Storages) -> Result<path::PathBuf> {
         let parent_mount_path = self
-            .parent(&storages)
+            .parent(storages)
             .context("Can't find parent storage")?
-            .mount_path(&device)?;
+            .mount_path(device)?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
     }
 }
@@ -181,7 +181,7 @@ mod test {
         );
         let mut storages = Storages::new();
         storages
-            .add(storages::Storage::PhysicalStorage(physical))
+            .add(storages::Storage::Physical(physical))
             .unwrap();
         storages.add(Storage::SubDirectory(directory)).unwrap();
         // assert_eq!(directory.name(), "test_name");

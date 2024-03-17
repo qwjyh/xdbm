@@ -27,7 +27,7 @@ impl Device {
     pub fn new(name: String) -> Device {
         let sys = System::new();
         Device {
-            name: name,
+            name,
             os_name: sys.name().unwrap_or_else(|| {
                 warn!("Failed to get OS name. Saving as \"unknown\".");
                 "unknown".to_string()
@@ -46,17 +46,6 @@ impl Device {
     /// Get name.
     pub fn name(&self) -> String {
         self.name.to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Device;
-
-    #[test]
-    fn get_name() {
-        let device = Device::new("test".to_string());
-        assert_eq!("test".to_string(), device.name());
     }
 }
 
@@ -80,8 +69,7 @@ pub fn get_device(config_dir: &Path) -> Result<Device> {
     trace!("devices: {:?}", devices);
     devices
         .into_iter()
-        .filter(|dev| dev.name() == devname)
-        .next()
+        .find(|dev| dev.name() == devname)
         .context("Couldn't find Device in devices.yml")
 }
 
@@ -93,7 +81,7 @@ pub fn get_devices(config_dir: &Path) -> Result<Vec<Device>> {
     let reader = BufReader::new(f);
     let yaml: Vec<Device> =
         serde_yaml::from_reader(reader).context("Failed to parse devices.yml")?;
-    return Ok(yaml);
+    Ok(yaml)
 }
 
 /// Write `devices` to yaml file in `config_dir`.
@@ -105,4 +93,15 @@ pub fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
         .open(config_dir.join(DEVICESFILE))?;
     let writer = BufWriter::new(f);
     serde_yaml::to_writer(writer, &devices).map_err(|e| anyhow!(e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Device;
+
+    #[test]
+    fn get_name() {
+        let device = Device::new("test".to_string());
+        assert_eq!("test".to_string(), device.name());
+    }
 }

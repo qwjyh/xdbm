@@ -174,7 +174,7 @@ impl Backup {
         &self.name
     }
 
-    pub fn device<'a>(&'a self, devices: &'a Vec<Device>) -> Option<&Device> {
+    pub fn device<'a>(&'a self, devices: &'a [Device]) -> Option<&Device> {
         devices.iter().find(|dev| dev.name() == self.device)
     }
 
@@ -190,7 +190,7 @@ impl Backup {
         &self.command
     }
 
-    pub fn add_log(&mut self, newlog: BackupLog) -> () {
+    pub fn add_log(&mut self, newlog: BackupLog) {
         self.logs.push(newlog)
     }
 

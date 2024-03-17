@@ -21,7 +21,7 @@ pub fn min_parent_storage<'a>(
                 Ok(path) => path,
                 Err(_) => return None,
             };
-            let diff = pathdiff::diff_paths(&path, storage_path)?;
+            let diff = pathdiff::diff_paths(path, storage_path)?;
             if diff.components().any(|c| c == path::Component::ParentDir) {
                 None
             } else {
@@ -115,14 +115,12 @@ mod test {
             .unwrap()
             .eq(&PathBuf::from("/aaa/bbb/ccc")));
         let expanded = expand_tilde(PathBuf::from("~/aaa/bbb/ccc"));
-        match expanded {
-            Ok(path) => assert!(path.eq(&dirs::home_dir().unwrap().join("aaa/bbb/ccc"))),
-            Err(_) => (),
+        if let Ok(path) = expanded {
+            assert!(path.eq(&dirs::home_dir().unwrap().join("aaa/bbb/ccc")))
         }
         let expanded = expand_tilde(PathBuf::from("aaa/~/bbb"));
-        match expanded {
-            Ok(path) => assert_eq!(path, PathBuf::from("aaa/~/bbb")),
-            Err(_) => (),
+        if let Ok(path) = expanded {
+            assert_eq!(path, PathBuf::from("aaa/~/bbb"))
         }
         Ok(())
     }

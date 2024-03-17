@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 
@@ -8,16 +8,16 @@ use crate::{
     storages::{Storage, StorageExt, Storages},
 };
 
-pub(crate) fn cmd_check(config_dir: &PathBuf) -> Result<()> {
+pub(crate) fn cmd_check(config_dir: &Path) -> Result<()> {
     info!("Config dir: {}", &config_dir.display());
 
-    let device = devices::get_device(&config_dir)?;
+    let device = devices::get_device(config_dir)?;
     info!("Current device: {:?}", device);
 
-    let devices = devices::get_devices(&config_dir)?;
+    let devices = devices::get_devices(config_dir)?;
     info!("Configured devices: {:?}", devices);
 
-    let storages = Storages::read(&config_dir)?;
+    let storages = Storages::read(config_dir)?;
     info!("Storages: {:?}", storages);
     if !(storages.list.iter().all(|(_name, storage)| match storage {
         Storage::SubDirectory(storage) => storage.parent(&storages).is_some(),
@@ -30,7 +30,7 @@ pub(crate) fn cmd_check(config_dir: &PathBuf) -> Result<()> {
     info!("All SubDirectory's parent exists.");
 
     for device in &devices {
-        let backups = Backups::read(&config_dir, &device)?;
+        let backups = Backups::read(config_dir, device)?;
         for (name, backup) in &backups.list {
             if name != backup.name() {
                 return Err(anyhow!(

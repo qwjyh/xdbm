@@ -27,7 +27,7 @@ pub enum StorageType {
 /// All storage types.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Storage {
-    PhysicalStorage(PhysicalDrivePartition),
+    Physical(PhysicalDrivePartition),
     SubDirectory(Directory),
     Online(OnlineStorage),
 }
@@ -36,7 +36,7 @@ impl Storage {
     /// Full type name like "PhysicalStorage".
     pub fn typename(&self) -> &str {
         match self {
-            Self::PhysicalStorage(_) => "PhysicalStorage",
+            Self::Physical(_) => "PhysicalStorage",
             Self::SubDirectory(_) => "SubDirectory",
             Self::Online(_) => "OnlineStorage",
         }
@@ -45,7 +45,7 @@ impl Storage {
     /// Short type name with one letter like "P".
     pub fn shorttypename(&self) -> &str {
         match self {
-            Self::PhysicalStorage(_) => "P",
+            Self::Physical(_) => "P",
             Self::SubDirectory(_) => "S",
             Self::Online(_) => "O",
         }
@@ -55,7 +55,7 @@ impl Storage {
 impl StorageExt for Storage {
     fn name(&self) -> &String {
         match self {
-            Self::PhysicalStorage(s) => s.name(),
+            Self::Physical(s) => s.name(),
             Self::SubDirectory(s) => s.name(),
             Self::Online(s) => s.name(),
         }
@@ -63,7 +63,7 @@ impl StorageExt for Storage {
 
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo> {
         match self {
-            Self::PhysicalStorage(s) => s.local_info(device),
+            Self::Physical(s) => s.local_info(device),
             Self::SubDirectory(s) => s.local_info(device),
             Self::Online(s) => s.local_info(device),
         }
@@ -71,9 +71,9 @@ impl StorageExt for Storage {
 
     fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
         match self {
-            Self::PhysicalStorage(s) => s.mount_path(&device),
-            Self::SubDirectory(s) => s.mount_path(&device),
-            Self::Online(s) => s.mount_path(&device),
+            Self::Physical(s) => s.mount_path(device),
+            Self::SubDirectory(s) => s.mount_path(device),
+            Self::Online(s) => s.mount_path(device),
         }
     }
 
@@ -84,7 +84,7 @@ impl StorageExt for Storage {
         device: &devices::Device,
     ) -> Result<()> {
         match self {
-            Storage::PhysicalStorage(s) => s.bound_on_device(alias, mount_point, device),
+            Storage::Physical(s) => s.bound_on_device(alias, mount_point, device),
             Storage::SubDirectory(s) => s.bound_on_device(alias, mount_point, device),
             Storage::Online(s) => s.bound_on_device(alias, mount_point, device),
         }
@@ -92,7 +92,7 @@ impl StorageExt for Storage {
 
     fn capacity(&self) -> Option<u64> {
         match self {
-            Storage::PhysicalStorage(s) => s.capacity(),
+            Storage::Physical(s) => s.capacity(),
             Storage::SubDirectory(s) => s.capacity(),
             Storage::Online(s) => s.capacity(),
         }
@@ -100,7 +100,7 @@ impl StorageExt for Storage {
 
     fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&'a Storage> {
         match self {
-            Storage::PhysicalStorage(s) => s.parent(storages),
+            Storage::Physical(s) => s.parent(storages),
             Storage::SubDirectory(s) => s.parent(storages),
             Storage::Online(s) => s.parent(storages),
         }
@@ -110,7 +110,7 @@ impl StorageExt for Storage {
 impl fmt::Display for Storage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::PhysicalStorage(s) => s.fmt(f),
+            Self::Physical(s) => s.fmt(f),
             Self::SubDirectory(s) => s.fmt(f),
             Self::Online(s) => s.fmt(f),
         }

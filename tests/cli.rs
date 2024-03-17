@@ -41,7 +41,7 @@ mod cmd_init {
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
         let mut repo_1_remote =
-            repo_1.remote(upstream_name, &bare_repo_dir.path().to_str().unwrap())?;
+            repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
         repo_1_remote.push(&["refs/heads/main"], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
@@ -112,7 +112,7 @@ mod cmd_init {
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
         let mut repo_1_remote =
-            repo_1.remote(upstream_name, &bare_repo_dir.path().to_str().unwrap())?;
+            repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
         repo_1_remote.push(&["refs/heads/main"], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
@@ -182,9 +182,7 @@ mod cmd_init {
             .stdout(predicate::str::contains(""));
         // Add storage (directory)
         let sample_directory = &sample_storage.join("foo").join("bar");
-        DirBuilder::new()
-            .recursive(true)
-            .create(&sample_directory)?;
+        DirBuilder::new().recursive(true).create(sample_directory)?;
         Command::cargo_bin("xdbm")?
             .arg("-c")
             .arg(config_dir_1.path())
@@ -194,7 +192,7 @@ mod cmd_init {
             .arg("--alias")
             .arg("docs")
             .arg("gdrive_docs")
-            .arg(&sample_directory)
+            .arg(sample_directory)
             .assert()
             .success()
             .stdout(predicate::str::contains(""));
@@ -222,7 +220,7 @@ mod cmd_init {
             .arg("--alias")
             .arg("gdocs")
             .arg("--path")
-            .arg(&sample_directory)
+            .arg(sample_directory)
             .arg("gdrive_docs")
             .assert()
             .success()
@@ -232,7 +230,7 @@ mod cmd_init {
         let sample_storage_2 = assert_fs::TempDir::new()?;
         Command::cargo_bin("xdbm")?
             .arg("-c")
-            .arg(&config_dir_2.path())
+            .arg(config_dir_2.path())
             .arg("storage")
             .arg("add")
             .arg("online")
@@ -243,13 +241,13 @@ mod cmd_init {
             .arg("--alias")
             .arg("nas")
             .arg("nas")
-            .arg(&sample_storage_2.path())
+            .arg(sample_storage_2.path())
             .assert()
             .success();
 
         Command::cargo_bin("xdbm")?
             .arg("-c")
-            .arg(&config_dir_2.path())
+            .arg(config_dir_2.path())
             .arg("storage")
             .arg("list")
             .arg("-l")
@@ -257,18 +255,18 @@ mod cmd_init {
             .success();
         // backup add
         let backup_src = &sample_storage_2.join("foo").join("bar");
-        DirBuilder::new().recursive(true).create(&backup_src)?;
+        DirBuilder::new().recursive(true).create(backup_src)?;
         let backup_dest = &sample_directory.join("docs");
-        DirBuilder::new().recursive(true).create(&backup_dest)?;
+        DirBuilder::new().recursive(true).create(backup_dest)?;
         Command::cargo_bin("xdbm")?
             .arg("-c")
-            .arg(&config_dir_2.path())
+            .arg(config_dir_2.path())
             .arg("backup")
             .arg("add")
             .arg("--src")
-            .arg(&backup_src)
+            .arg(backup_src)
             .arg("--dest")
-            .arg(&backup_dest)
+            .arg(backup_dest)
             .arg("foodoc")
             .arg("external")
             .arg("rsync")
@@ -278,13 +276,13 @@ mod cmd_init {
 
         Command::cargo_bin("xdbm")?
             .arg("-c")
-            .arg(&config_dir_2.path())
+            .arg(config_dir_2.path())
             .arg("backup")
             .arg("add")
             .arg("--src")
-            .arg(&backup_src)
+            .arg(backup_src)
             .arg("--dest")
-            .arg(&backup_dest)
+            .arg(backup_dest)
             .arg("foodoc")
             .arg("external")
             .arg("rsync")

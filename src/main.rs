@@ -156,7 +156,7 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
         config.get_entry("user.email")?.value().unwrap(),
     )?;
     trace!("git signature: {}", signature);
-    let parent_commit = find_last_commit(&repo)?;
+    let parent_commit = find_last_commit(repo)?;
     let result = match parent_commit {
         Some(parent_commit) => repo.commit(
             Some("HEAD"),
