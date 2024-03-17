@@ -53,7 +53,7 @@ pub(crate) enum Commands {
         remote_name: Option<String>,
     },
 
-    /// Check config files.
+    /// Check config files validity.
     Check {},
 
     /// Generate completion script.

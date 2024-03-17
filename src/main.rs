@@ -28,10 +28,11 @@ use devices::{Device, DEVICESFILE, *};
 mod backups;
 mod cmd_args;
 mod cmd_backup;
+mod cmd_check;
+mod cmd_completion;
 mod cmd_init;
 mod cmd_storage;
 mod cmd_sync;
-mod cmd_completion;
 mod devices;
 mod inquire_filepath_completer;
 mod storages;
@@ -90,11 +91,7 @@ fn main() -> Result<()> {
             println!("{}", &config_dir.display());
         }
         Commands::Sync { remote_name } => cmd_sync::cmd_sync(&config_dir, remote_name)?,
-        Commands::Check {} => {
-            println!("Config dir: {}", &config_dir.display());
-            let _storages = Storages::read(&config_dir)?;
-            todo!()
-        }
+        Commands::Check {} => cmd_check::cmd_check(&config_dir)?,
         Commands::Backup(backup) => {
             trace!("backup subcommand with args: {:?}", backup);
             let repo = Repository::open(&config_dir).context(
@@ -123,9 +120,7 @@ fn main() -> Result<()> {
                 } => cmd_backup::cmd_backup_done(name, exit_status, log, repo, &config_dir)?,
             }
         }
-        Commands::Completion { shell } => {
-            cmd_completion::cmd_completion(shell)?
-        }
+        Commands::Completion { shell } => cmd_completion::cmd_completion(shell)?,
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())

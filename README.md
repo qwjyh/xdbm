@@ -23,8 +23,8 @@ to manage backups on several storages mounted on multiple devices with a single 
 - [x] update storage bind command
 - [ ] add storage remove command
 - [ ] add sync subcommand
-- [ ] add check subcommand
-  - [ ] check that all parents exist
+- [x] add check subcommand
+  - [x] check that all parents exist
 - [x] reorganize cmd option for storage
   - [x] use subcommand
 - [ ] backup subcommands
