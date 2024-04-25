@@ -1,5 +1,8 @@
 mod integrated_test {
-    use std::fs::DirBuilder;
+    use std::{
+        fs::{DirBuilder, File},
+        io::{BufWriter, Write}, path::Path,
+    };
 
     use anyhow::{Ok, Result};
     use assert_cmd::{assert::OutputAssertExt, Command};
@@ -7,9 +10,27 @@ mod integrated_test {
     use log::trace;
     use predicates::prelude::predicate;
 
+    fn setup_gitconfig(dir_path: &Path) -> Result<()> {
+        DirBuilder::new().create(dir_path.join(".git"))?;
+        {
+            let f = File::create(dir_path.join(".git/config"))?;
+            let mut buf = BufWriter::new(f);
+            buf.write_all(
+                r#"
+                [user]
+                        email = "test@example.com"
+                        name = "testuser"
+                "#
+                .as_bytes(),
+            )?;
+        }
+        Ok(())
+    }
+
     #[test]
     fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir)?;
         // init
         let mut cmd = Command::cargo_bin("xdbm")?;
         cmd.arg("-c")
@@ -103,6 +124,7 @@ mod integrated_test {
     fn two_devices_with_same_name() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir_1)?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -127,6 +149,7 @@ mod integrated_test {
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir_2)?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
@@ -142,6 +165,7 @@ mod integrated_test {
     fn directory_without_parent() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir_1)?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -174,6 +198,7 @@ mod integrated_test {
     fn two_devices() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir_1)?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
