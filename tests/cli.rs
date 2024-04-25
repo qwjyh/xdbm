@@ -1,39 +1,47 @@
 mod integrated_test {
     use std::{
         fs::{DirBuilder, File},
-        io::{BufWriter, Write},
-        path::Path,
-        thread,
-        time::Duration,
+        io::{self, BufWriter, Write},
     };
 
-    use anyhow::{Ok, Result};
+    use anyhow::{Context, Ok, Result};
     use assert_cmd::{assert::OutputAssertExt, Command};
+    use dirs::home_dir;
     use git2::Repository;
     use log::trace;
     use predicates::prelude::predicate;
 
-    fn setup_gitconfig(dir_path: &Path) -> Result<()> {
-        DirBuilder::new().create(dir_path.join(".git"))?;
-        {
-            let f = File::create(dir_path.join(".git/config"))?;
-            let mut buf = BufWriter::new(f);
-            buf.write_all(
-                r#"
+    /// Setup global gitconfig if it doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if it failed to get home directory.
+    fn setup_gitconfig() -> Result<()> {
+        let f = match File::create_new(
+            home_dir()
+                .context("Failed to find home directory")?
+                .join(".gitconfig"),
+        ) {
+            io::Result::Ok(f) => f,
+            io::Result::Err(_err) => return Ok(()),
+        };
+        let mut buf = BufWriter::new(f);
+        buf.write_all(
+            r#"
 [user]
         email = "test@example.com"
         name = "testuser"
 "#
-                .as_bytes(),
-            )?;
-        }
+            .as_bytes(),
+        )?;
+
         Ok(())
     }
 
     #[test]
     fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir)?;
+        setup_gitconfig()?;
         // init
         let mut cmd = Command::cargo_bin("xdbm")?;
         cmd.arg("-c")
@@ -120,12 +128,6 @@ mod integrated_test {
             .assert()
             .success();
 
-        let out = std::process::Command::new("git")
-            .arg("config")
-            .arg("--get")
-            .arg("user.email")
-            .output()?;
-        panic!("{}", String::from_utf8_lossy(&out.stdout));
         Ok(())
     }
 
@@ -133,7 +135,7 @@ mod integrated_test {
     fn two_devices_with_same_name() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -158,7 +160,7 @@ mod integrated_test {
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_2)?;
+        setup_gitconfig()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
@@ -174,7 +176,7 @@ mod integrated_test {
     fn directory_without_parent() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -207,7 +209,7 @@ mod integrated_test {
     fn two_devices() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
