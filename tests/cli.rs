@@ -1,7 +1,8 @@
 mod integrated_test {
     use std::{
         fs::{DirBuilder, File},
-        io::{BufWriter, Write}, path::Path,
+        io::{BufWriter, Write},
+        path::Path,
     };
 
     use anyhow::{Ok, Result};
@@ -17,10 +18,10 @@ mod integrated_test {
             let mut buf = BufWriter::new(f);
             buf.write_all(
                 r#"
-                [user]
-                        email = "test@example.com"
-                        name = "testuser"
-                "#
+[user]
+        email = "test@example.com"
+        name = "testuser"
+"#
                 .as_bytes(),
             )?;
         }
