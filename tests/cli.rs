@@ -3,6 +3,8 @@ mod integrated_test {
         fs::{DirBuilder, File},
         io::{BufWriter, Write},
         path::Path,
+        thread,
+        time::Duration,
     };
 
     use anyhow::{Ok, Result};
@@ -118,6 +120,12 @@ mod integrated_test {
             .assert()
             .success();
 
+        let out = std::process::Command::new("git")
+            .arg("config")
+            .arg("--get")
+            .arg("user.email")
+            .output()?;
+        panic!("{}", String::from_utf8_lossy(&out.stdout));
         Ok(())
     }
 
