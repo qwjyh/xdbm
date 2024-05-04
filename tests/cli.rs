@@ -151,7 +151,7 @@ mod integrated_test {
         let upstream_name = "remote";
         let mut repo_1_remote =
             repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
-        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()] as &[&str], None)?;
+        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
