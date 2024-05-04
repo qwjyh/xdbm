@@ -1,15 +1,47 @@
 mod integrated_test {
-    use std::fs::DirBuilder;
+    use std::{
+        fs::{DirBuilder, File},
+        io::{self, BufWriter, Write},
+    };
 
-    use anyhow::{Ok, Result};
+    use anyhow::{Context, Ok, Result};
     use assert_cmd::{assert::OutputAssertExt, Command};
+    use dirs::home_dir;
     use git2::Repository;
     use log::trace;
     use predicates::prelude::predicate;
 
+    /// Setup global gitconfig if it doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if it failed to get home directory.
+    fn setup_gitconfig() -> Result<()> {
+        let f = match File::create_new(
+            home_dir()
+                .context("Failed to find home directory")?
+                .join(".gitconfig"),
+        ) {
+            io::Result::Ok(f) => f,
+            io::Result::Err(_err) => return Ok(()),
+        };
+        let mut buf = BufWriter::new(f);
+        buf.write_all(
+            r#"
+[user]
+        email = "test@example.com"
+        name = "testuser"
+"#
+            .as_bytes(),
+        )?;
+
+        Ok(())
+    }
+
     #[test]
     fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         // init
         let mut cmd = Command::cargo_bin("xdbm")?;
         cmd.arg("-c")
@@ -103,6 +135,7 @@ mod integrated_test {
     fn two_devices_with_same_name() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -118,15 +151,17 @@ mod integrated_test {
         let upstream_name = "remote";
         let mut repo_1_remote =
             repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
-        repo_1_remote.push(&["refs/heads/main"], None)?;
+        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, "main").as_str()))?;
+        println!("head {}", repo_1.head().unwrap().name().unwrap());
+        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
@@ -142,6 +177,7 @@ mod integrated_test {
     fn directory_without_parent() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -174,6 +210,7 @@ mod integrated_test {
     fn two_devices() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -189,12 +226,12 @@ mod integrated_test {
         let upstream_name = "remote";
         let mut repo_1_remote =
             repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
-        repo_1_remote.push(&["refs/heads/main"], None)?;
+        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, "main").as_str()))?;
+        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
