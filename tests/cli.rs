@@ -151,12 +151,13 @@ mod integrated_test {
         let upstream_name = "remote";
         let mut repo_1_remote =
             repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
-        repo_1_remote.push(&["refs/heads/main"], None)?;
+        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()] as &[&str], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, "main").as_str()))?;
+        println!("head {}", repo_1.head().unwrap().name().unwrap());
+        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
@@ -225,12 +226,12 @@ mod integrated_test {
         let upstream_name = "remote";
         let mut repo_1_remote =
             repo_1.remote(upstream_name, bare_repo_dir.path().to_str().unwrap())?;
-        repo_1_remote.push(&["refs/heads/main"], None)?;
+        repo_1_remote.push(&[repo_1.head().unwrap().name().unwrap()], None)?;
         trace!("bare repo {:?}", bare_repo_dir.display());
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, "main").as_str()))?;
+        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
