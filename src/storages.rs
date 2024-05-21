@@ -9,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use core::panic;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, fs, io, path, u64};
+use std::{collections::BTreeMap, fmt, fs, io, path, u64};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -157,14 +157,14 @@ pub mod physical_drive_partition;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Storages {
-    pub list: HashMap<String, Storage>,
+    pub list: BTreeMap<String, Storage>,
 }
 
 impl Storages {
     /// Construct empty [`Storages`]
     pub fn new() -> Storages {
         Storages {
-            list: HashMap::new(),
+            list: BTreeMap::new(),
         }
     }
 
