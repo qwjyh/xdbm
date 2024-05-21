@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.2.0] - 2024-05-21
 
 ### Changed
 - Added CI on GitHub Actions (#10).
@@ -21,5 +21,5 @@
 - `backup done` subcommand
 - `completion` subcommand
 
-[unreleased]: https://github.com/qwjyh/xdbm/compare/v0.1.0...HEAD
+[0.2.0]: https://github.com/qwjyh/xdbm/releases/tag/v0.2.0
 [0.1.0]: https://github.com/qwjyh/xdbm/releases/tag/v0.1.0
