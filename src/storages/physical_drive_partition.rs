@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context, Result};
 use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
 use std::path::{self, Path};
-use std::{collections::HashMap, fmt};
+use std::{collections::BTreeMap, fmt};
 use sysinfo::{Disk, DiskExt, SystemExt};
 
 use super::local_info::{self, LocalInfo};
@@ -20,8 +20,8 @@ pub struct PhysicalDrivePartition {
     capacity: u64,
     fs: String,
     is_removable: bool,
-    // system_names: HashMap<String, String>,
-    local_infos: HashMap<String, LocalInfo>,
+    // system_names: BTreeMap<String, String>,
+    local_infos: BTreeMap<String, LocalInfo>,
 }
 
 impl PhysicalDrivePartition {
@@ -40,7 +40,7 @@ impl PhysicalDrivePartition {
             capacity,
             fs,
             is_removable,
-            local_infos: HashMap::from([(device.name(), local_info)]),
+            local_infos: BTreeMap::from([(device.name(), local_info)]),
         }
     }
 
@@ -65,8 +65,8 @@ impl PhysicalDrivePartition {
             capacity: disk.total_space(),
             fs: fs.to_string(),
             is_removable: disk.is_removable(),
-            // system_names: HashMap::from([(device.name(), alias)]),
-            local_infos: HashMap::from([(device.name(), local_info)]),
+            // system_names: BTreeMap::from([(device.name(), alias)]),
+            local_infos: BTreeMap::from([(device.name(), local_info)]),
         })
     }
 

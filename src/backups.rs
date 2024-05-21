@@ -3,7 +3,7 @@
 
 use core::panic;
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs, io,
     path::{Path, PathBuf},
 };
@@ -202,14 +202,14 @@ impl Backup {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Backups {
-    pub list: HashMap<String, Backup>,
+    pub list: BTreeMap<String, Backup>,
 }
 
 impl Backups {
     /// Empty [`Backups`].
     pub fn new() -> Backups {
         Backups {
-            list: HashMap::new(),
+            list: BTreeMap::new(),
         }
     }
 

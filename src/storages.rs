@@ -9,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use core::panic;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, fs, io, path, u64};
+use std::{collections::BTreeMap, fmt, fs, io, path, u64};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -135,7 +135,7 @@ pub trait StorageExt {
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo>;
 
     /// Get mount path of `self` on `device`.
-    /// `storages` is a `HashMap` with key of storage name and value of the storage.
+    /// `storages` is a `BTreeMap` with key of storage name and value of the storage.
     fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf>;
 
     /// Add local info of `device` to `self`.
@@ -157,14 +157,14 @@ pub mod physical_drive_partition;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Storages {
-    pub list: HashMap<String, Storage>,
+    pub list: BTreeMap<String, Storage>,
 }
 
 impl Storages {
     /// Construct empty [`Storages`]
     pub fn new() -> Storages {
         Storages {
-            list: HashMap::new(),
+            list: BTreeMap::new(),
         }
     }
 

@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fmt, path};
+use std::{collections::BTreeMap, fmt, path};
 
 use crate::devices;
 use crate::util;
@@ -20,7 +20,7 @@ pub struct Directory {
     relative_path: path::PathBuf,
     pub notes: String,
     /// Device and localinfo pairs.
-    local_infos: HashMap<String, LocalInfo>,
+    local_infos: BTreeMap<String, LocalInfo>,
 }
 
 impl Directory {
@@ -33,7 +33,7 @@ impl Directory {
         parent: String,
         relative_path: path::PathBuf,
         notes: String,
-        local_infos: HashMap<String, LocalInfo>,
+        local_infos: BTreeMap<String, LocalInfo>,
     ) -> Directory {
         Directory {
             name,
@@ -61,7 +61,7 @@ impl Directory {
             parent.name().to_string(),
             diff_path,
             notes,
-            HashMap::from([(device.name(), local_info)]),
+            BTreeMap::from([(device.name(), local_info)]),
         ))
     }
 
@@ -142,7 +142,7 @@ impl fmt::Display for Directory {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, path::PathBuf};
+    use std::{collections::BTreeMap, path::PathBuf};
 
     use crate::{
         devices::Device,
@@ -161,7 +161,7 @@ mod test {
         let local_info_dir =
             LocalInfo::new("dir_alias".to_string(), PathBuf::from("/mnt/sample/subdir"));
         let device = Device::new("test_device".to_string());
-        let mut local_infos = HashMap::new();
+        let mut local_infos = BTreeMap::new();
         local_infos.insert(device.name(), local_info_dir);
         let physical = PhysicalDrivePartition::new(
             "parent".to_string(),

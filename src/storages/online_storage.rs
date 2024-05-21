@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path;
 
@@ -23,7 +23,7 @@ pub struct OnlineStorage {
     /// Capacity in bytes.
     capacity: u64,
     /// Device and local info pairs.
-    local_infos: HashMap<String, LocalInfo>,
+    local_infos: BTreeMap<String, LocalInfo>,
 }
 
 impl OnlineStorage {
@@ -42,7 +42,7 @@ impl OnlineStorage {
             name,
             provider,
             capacity,
-            local_infos: HashMap::from([(device.name(), local_info)]),
+            local_infos: BTreeMap::from([(device.name(), local_info)]),
         }
     }
 }
