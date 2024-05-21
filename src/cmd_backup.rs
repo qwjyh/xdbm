@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     io::{self, stdout, Write},
     path::{Path, PathBuf},
 };
@@ -103,14 +103,14 @@ pub fn cmd_backup_list(
     storages: &Storages,
 ) -> Result<()> {
     let devices = devices::get_devices(config_dir)?;
-    let backups: HashMap<(String, String), Backup> = match device_name {
+    let backups: BTreeMap<(String, String), Backup> = match device_name {
         Some(device_name) => {
             let device = devices
                 .iter()
                 .find(|dev| dev.name() == device_name)
                 .context(format!("Device with name {} doesn't exist", device_name))?;
             let backups = Backups::read(config_dir, device)?;
-            let mut allbackups = HashMap::new();
+            let mut allbackups = BTreeMap::new();
             for (name, backup) in backups.list {
                 if allbackups.insert((device.name(), name), backup).is_some() {
                     return Err(anyhow!("unexpected duplication in backups hashmap"));
@@ -119,7 +119,7 @@ pub fn cmd_backup_list(
             allbackups
         }
         None => {
-            let mut allbackups = HashMap::new();
+            let mut allbackups = BTreeMap::new();
             for device in &devices {
                 let backups = Backups::read(config_dir, device)?;
                 for (name, backup) in backups.list {
@@ -132,7 +132,7 @@ pub fn cmd_backup_list(
         }
     };
     // source/destination filtering
-    let backups: HashMap<(String, String), Backup> = backups
+    let backups: BTreeMap<(String, String), Backup> = backups
         .into_iter()
         .filter(|((_dev, _name), backup)| {
             let src_matched = match &src_storage {
@@ -156,7 +156,7 @@ pub fn cmd_backup_list(
 /// TODO: status printing
 fn write_backups_list(
     mut writer: impl io::Write,
-    backups: HashMap<(String, String), Backup>,
+    backups: BTreeMap<(String, String), Backup>,
     longprint: bool,
     storages: &Storages,
     devices: &[Device],
