@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result};
 use byte_unit::Byte;
+use byte_unit::UnitType;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -60,10 +61,7 @@ impl StorageExt for OnlineStorage {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(
-        &self,
-        device: &devices::Device,
-    ) -> Result<std::path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device) -> Result<std::path::PathBuf> {
         Ok(self
             .local_infos
             .get(&device.name())
@@ -98,7 +96,7 @@ impl fmt::Display for OnlineStorage {
             f,
             "O {name:<10} {size:<10}    {provider:<10}",
             name = self.name(),
-            size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
+            size = Byte::from_u64(self.capacity).get_appropriate_unit(UnitType::Binary),
             provider = self.provider,
         )
     }

@@ -17,16 +17,16 @@ clap = { version = "4.4.0", features = ["cargo", "derive"] }
 sysinfo = { version = "0.30", features = ["serde"] }
 log = "0.4"
 clap-verbosity-flag = "2.2"
-clap_complete = "4.5.1"
-chrono = { version = "0.4.35", features = ["serde"] }
-env_logger = "0.10.0"
-inquire = "0.6.2"
+clap_complete = "4.5"
+chrono = { version = "0.4", features = ["serde"] }
+env_logger = "0.11.3"
+inquire = "0.7.5"
 git2 = "0.19"
 dirs = "5.0"
 dunce = "1.0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
-byte-unit = "4.0.19"
+byte-unit = "5.1.4"
 anyhow = "1.0"
 pathdiff = "0.2.1"
 unicode-width = "0.1.11"
