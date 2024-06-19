@@ -8,7 +8,7 @@ use byte_unit::Byte;
 use serde::{Deserialize, Serialize};
 use std::path::{self, Path};
 use std::{collections::BTreeMap, fmt};
-use sysinfo::{Disk, DiskExt, SystemExt};
+use sysinfo::{Disk, Disks};
 
 use super::local_info::{self, LocalInfo};
 
@@ -57,7 +57,10 @@ impl PhysicalDrivePartition {
             .to_string();
         let fs = disk.file_system();
         trace!("fs: {:?}", fs);
-        let fs = std::str::from_utf8(fs)?;
+        let fs: String = fs
+            .to_str()
+            .context("Failed to convert file_system osstr")?
+            .to_owned();
         let local_info = LocalInfo::new(alias, disk.mount_point().to_path_buf());
         Ok(PhysicalDrivePartition {
             name,
@@ -161,13 +164,9 @@ pub fn select_physical_storage(
 ) -> Result<PhysicalDrivePartition> {
     trace!("select_physical_storage");
     // get disk info from sysinfo
-    let sys_disks =
-        sysinfo::System::new_with_specifics(sysinfo::RefreshKind::new().with_disks_list());
-    trace!("refresh");
-    // sys_disks.refresh_disks_list();
-    // sys_disks.refresh_disks();
+    let sys_disks = Disks::new_with_refreshed_list();
     trace!("Available disks");
-    for disk in sys_disks.disks() {
+    for disk in &sys_disks {
         trace!("{:?}", disk)
     }
     let disk = select_sysinfo_disk(&sys_disks)?;
@@ -175,14 +174,13 @@ pub fn select_physical_storage(
     Ok(storage)
 }
 
-fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
-    let available_disks = sysinfo
-        .disks()
+fn select_sysinfo_disk(disks: &sysinfo::Disks) -> Result<&Disk> {
+    let available_disks = disks
         .iter()
         .enumerate()
         .map(|(i, disk)| {
             let name = disk.name().to_str().unwrap_or("");
-            let fs: &str = std::str::from_utf8(disk.file_system()).unwrap_or("unknown");
+            let fs: &str = disk.file_system().to_str().unwrap_or("unknown");
             let kind = format!("{:?}", disk.kind());
             let mount_path = disk.mount_point();
             let total_space = byte_unit::Byte::from_bytes(disk.total_space().into())
@@ -203,10 +201,8 @@ fn select_sysinfo_disk(sysinfo: &sysinfo::System) -> Result<&Disk> {
     let disk = inquire::Select::new("Select drive:", available_disks).prompt()?;
     let disk_num: usize = disk.split(':').next().unwrap().parse().unwrap();
     trace!("disk_num: {}", disk_num);
-    let disk = sysinfo
-        .disks()
-        .iter()
-        .nth(disk_num)
+    let disk = disks
+        .get(disk_num)
         .context("no disk matched with selected one.")?;
     trace!("selected disk: {:?}", disk);
     Ok(disk)

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter};
 use std::path::Path;
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 /// YAML file to store known devices.
 pub const DEVICESFILE: &str = "devices.yml";
@@ -25,18 +25,17 @@ impl Device {
     /// Create new `Device` of name `name`. Additional data is obtained via sysinfo.
     /// Filling fields which one failed to get is filled with "unknown".
     pub fn new(name: String) -> Device {
-        let sys = System::new();
         Device {
             name,
-            os_name: sys.name().unwrap_or_else(|| {
+            os_name: System::name().unwrap_or_else(|| {
                 warn!("Failed to get OS name. Saving as \"unknown\".");
                 "unknown".to_string()
             }),
-            os_version: sys.os_version().unwrap_or_else(|| {
+            os_version: System::os_version().unwrap_or_else(|| {
                 warn!("Failed to get OS version. Saving as \"unknown\".");
                 "unknown".to_string()
             }),
-            hostname: sys.host_name().unwrap_or_else(|| {
+            hostname: System::host_name().unwrap_or_else(|| {
                 warn!("Failed to get hostname. Saving as \"unknown\".");
                 "unknown".to_string()
             }),
