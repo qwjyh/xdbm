@@ -94,7 +94,7 @@ impl fmt::Display for OnlineStorage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "O {name:<10} {size:<10}    {provider:<10}",
+            "O {name:<10} {size:<10.2}    {provider:<10}",
             name = self.name(),
             size = Byte::from_u64(self.capacity).get_appropriate_unit(UnitType::Binary),
             provider = self.provider,

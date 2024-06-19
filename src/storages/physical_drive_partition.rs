@@ -146,7 +146,7 @@ impl fmt::Display for PhysicalDrivePartition {
         let removable_indicator = if self.is_removable { "+" } else { "-" };
         write!(
             f,
-            "P {name:<10} {size:<10}  {removable:<1} {kind:<6} {fs:<5}",
+            "P {name:<10} {size:<10.2}  {removable:<1} {kind:<6} {fs:<5}",
             name = self.name(),
             size = Byte::from_u64(self.capacity).get_appropriate_unit(UnitType::Binary),
             removable = removable_indicator,
@@ -184,10 +184,9 @@ fn select_sysinfo_disk(disks: &sysinfo::Disks) -> Result<&Disk> {
             let kind = format!("{:?}", disk.kind());
             let mount_path = disk.mount_point();
             let total_space = byte_unit::Byte::from_u64(disk.total_space())
-                .get_appropriate_unit(UnitType::Binary)
-                .to_string();
+                .get_appropriate_unit(UnitType::Binary);
             format!(
-                "{}: {} {} ({}, {}) {}",
+                "{}: {} {:>+5.1} ({}, {}) {}",
                 i,
                 name,
                 total_space,
