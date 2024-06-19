@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use dunce::canonicalize;
 use git2::Repository;
 use inquire::{Confirm, CustomType, Text};
@@ -197,10 +197,11 @@ fn write_storages_list(
     trace!("name widths: {}", name_width);
     for storage in storages.list.values() {
         let size_str = match storage.capacity() {
-            Some(b) => Byte::from_bytes(b.into())
-                .get_appropriate_unit(true)
-                .format(0)
-                .to_string(),
+            Some(b) => {
+                let size = Byte::from_u64(b).get_appropriate_unit(UnitType::Binary);
+                // TODO: split case for 500GB and 1.5TB?
+                format!("{:>+5.1}", size)
+            }
             None => "".to_string(),
         };
         let isremovable = if let Storage::Physical(s) = storage {
@@ -228,7 +229,7 @@ fn write_storages_list(
         };
         writeln!(
             writer,
-            "{stype}{isremovable}: {name:<name_width$} {size:>8} {parent:<name_width$} {path}",
+            "{stype}{isremovable}: {name:<name_width$} {size:>10} {parent:<name_width$} {path}",
             stype = storage.shorttypename(),
             isremovable = isremovable,
             name = storage.name(),

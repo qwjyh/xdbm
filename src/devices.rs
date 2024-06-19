@@ -88,6 +88,7 @@ pub fn write_devices(config_dir: &Path, devices: Vec<Device>) -> Result<()> {
     trace!("write_devices");
     let f = OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)
         .open(config_dir.join(DEVICESFILE))?;
     let writer = BufWriter::new(f);

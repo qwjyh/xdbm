@@ -17,7 +17,7 @@ impl FilePathCompleter {
             return Ok(());
         }
 
-        self.input = input.to_owned();
+        input.clone_into(&mut self.input);
         self.paths.clear();
 
         let input_path = std::path::PathBuf::from(input);

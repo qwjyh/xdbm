@@ -4,7 +4,7 @@ use crate::devices;
 use crate::devices::Device;
 use crate::storages::{Storage, StorageExt, Storages};
 use anyhow::{anyhow, Context, Result};
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use serde::{Deserialize, Serialize};
 use std::path::{self, Path};
 use std::{collections::BTreeMap, fmt};
@@ -146,9 +146,9 @@ impl fmt::Display for PhysicalDrivePartition {
         let removable_indicator = if self.is_removable { "+" } else { "-" };
         write!(
             f,
-            "P {name:<10} {size:<10}  {removable:<1} {kind:<6} {fs:<5}",
+            "P {name:<10} {size:<10.2}  {removable:<1} {kind:<6} {fs:<5}",
             name = self.name(),
-            size = Byte::from_bytes(self.capacity.into()).get_appropriate_unit(true),
+            size = Byte::from_u64(self.capacity).get_appropriate_unit(UnitType::Binary),
             removable = removable_indicator,
             kind = self.kind,
             fs = self.fs,
@@ -183,11 +183,10 @@ fn select_sysinfo_disk(disks: &sysinfo::Disks) -> Result<&Disk> {
             let fs: &str = disk.file_system().to_str().unwrap_or("unknown");
             let kind = format!("{:?}", disk.kind());
             let mount_path = disk.mount_point();
-            let total_space = byte_unit::Byte::from_bytes(disk.total_space().into())
-                .get_appropriate_unit(true)
-                .to_string();
+            let total_space = byte_unit::Byte::from_u64(disk.total_space())
+                .get_appropriate_unit(UnitType::Binary);
             format!(
-                "{}: {} {} ({}, {}) {}",
+                "{}: {} {:>+5.1} ({}, {}) {}",
                 i,
                 name,
                 total_space,
