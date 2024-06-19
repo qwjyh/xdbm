@@ -44,7 +44,7 @@ fn clone_repo(
                     .context("No username found from the url")
                     .unwrap(),
                 None,
-                &key as &Path,
+                key as &Path,
                 passwd.as_deref(),
             )
         } else if use_sshagent {
