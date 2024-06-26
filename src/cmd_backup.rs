@@ -5,7 +5,8 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
-use chrono::Local;
+use chrono::{Local, TimeDelta};
+use colored::Colorize;
 use dunce::canonicalize;
 use git2::Repository;
 use unicode_width::UnicodeWidthStr;
@@ -188,9 +189,22 @@ fn write_backups_list(
     // main printing
     for ((dev, _name), backup) in &backups {
         let device = backup.device(devices).context(format!(
-            "Couldn't find device specified in backup config {}",
+            "Couldn't find the device specified in the backup config: {}",
             backup.name()
         ))?;
+        let name = match backup.last_backup() {
+            Some(log) => {
+                let time = Local::now() - log.datetime;
+                match time {
+                    x if x < TimeDelta::days(14) => backup.name().normal(),
+                    x if x < TimeDelta::days(28) => backup.name().magenta(),
+                    x if x < TimeDelta::days(28 * 3) => backup.name().red(),
+                    x if x < TimeDelta::days(180) => backup.name().red().bold(),
+                    _ => backup.name().black().on_red(),
+                }
+            }
+            None => backup.name().normal(),
+        };
         let src = backup.source().path(storages, device)?;
         let dest = backup.destination().path(storages, device)?;
         let cmd_name = backup.command().name();
@@ -199,28 +213,54 @@ fn write_backups_list(
                 let time = Local::now() - log.datetime;
                 util::format_summarized_duration(time)
             }
-            None => "---".to_string(),
+            None => "---".to_string().red(),
         };
-        writeln!(
-            writer,
-            "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {last_backup_elapsed}",
-            name = backup.name(),
-            src = backup.source().storage,
-            dest = backup.destination().storage,
-        )?;
-        if longprint {
-            let cmd_note = backup.command().note();
-            writeln!(writer, "    src : {src:<src_width$}", src = src.display())?;
+        if !longprint {
             writeln!(
                 writer,
-                "    dest: {dest:<dest_width$}",
+                "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {last_backup_elapsed}",
+                dev = dev.blue(),
+                src = backup.source().storage,
+                dest = backup.destination().storage,
+            )?;
+        } else {
+            writeln!(
+                writer,
+                "[{dev:<dev_width$}] {name:<name_width$} {last_backup_elapsed}",
+                dev = dev.blue(),
+                name = name.bold(),
+            )?;
+            let last_backup_date = match backup.last_backup() {
+                Some(date) => date.datetime.format("%Y-%m-%d %T").to_string(),
+                None => "never".to_string(),
+            };
+            let cmd_note = backup.command().note();
+            writeln!(
+                writer,
+                "{s_src} {src}",
+                s_src = "src :".italic().bright_black(),
+                src = src.display()
+            )?;
+            writeln!(
+                writer,
+                "{s_dest} {dest}",
+                s_dest = "dest:".italic().bright_black(),
                 dest = dest.display()
             )?;
             writeln!(
                 writer,
-                "  {cmd_name:<cmd_name_width$}({note})",
-                note = cmd_note,
+                "{s_last} {last}",
+                s_last = "last:".italic().bright_black(),
+                last = last_backup_date,
             )?;
+            writeln!(
+                writer,
+                "{s_cmd} {cmd_name}({note})",
+                s_cmd = "cmd :".italic().bright_black(),
+                cmd_name = cmd_name.underline(),
+                note = cmd_note.italic(),
+            )?;
+            writeln!(writer)?;
         }
     }
     Ok(())
