@@ -1,7 +1,7 @@
 use std::path::{self, PathBuf};
 
 use anyhow::{Context, Result};
-use colored::{ColoredString, Colorize};
+use console::Style;
 
 use crate::{
     devices::Device,
@@ -52,21 +52,13 @@ pub fn expand_tilde(path: PathBuf) -> Result<PathBuf> {
     }
 }
 
-pub fn format_summarized_duration(dt: chrono::Duration) -> ColoredString {
+pub fn format_summarized_duration(dt: chrono::Duration) -> String {
     if dt.num_days() > 0 {
-        let days = format!("{}d", dt.num_days());
-        match dt.num_days() {
-            x if x < 7 => days.green(),
-            x if x < 14 => days.yellow(),
-            x if x < 28 => days.magenta(),
-            x if x < 28 * 3 => days.red(),
-            x if x < 180 => days.red().bold(),
-            _ => days.black().on_red(),
-        }
+        format!("{}d", dt.num_days())
     } else if dt.num_hours() > 0 {
-        format!("{}h", dt.num_hours()).green()
+        format!("{}h", dt.num_hours())
     } else {
-        format!("{}min", dt.num_minutes()).green()
+        format!("{}min", dt.num_minutes())
     }
 }
 

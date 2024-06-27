@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use byte_unit::{Byte, UnitType};
+use console::Style;
 use dunce::canonicalize;
 use git2::Repository;
 use inquire::{Confirm, CustomType, Text};

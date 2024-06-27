@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Ok, Result};
 use chrono::{Local, TimeDelta};
-use colored::Colorize;
+use console::Style;
 use dunce::canonicalize;
 use git2::Repository;
 use unicode_width::UnicodeWidthStr;
@@ -154,6 +154,17 @@ pub fn cmd_backup_list(
     Ok(())
 }
 
+fn duration_style(time: TimeDelta) -> Style {
+    match time {
+        x if x < TimeDelta::days(7) => Style::new().green(),
+        x if x < TimeDelta::days(14) => Style::new().yellow(),
+        x if x < TimeDelta::days(28) => Style::new().magenta(),
+        x if x < TimeDelta::days(28 * 3) => Style::new().red(),
+        x if x < TimeDelta::days(180) => Style::new().red().bold(),
+        _ => Style::new().on_red().black(),
+    }
+}
+
 /// TODO: status printing
 fn write_backups_list(
     mut writer: impl io::Write,
@@ -192,34 +203,27 @@ fn write_backups_list(
             "Couldn't find the device specified in the backup config: {}",
             backup.name()
         ))?;
-        let name = match backup.last_backup() {
-            Some(log) => {
-                let time = Local::now() - log.datetime;
-                match time {
-                    x if x < TimeDelta::days(14) => backup.name().normal(),
-                    x if x < TimeDelta::days(28) => backup.name().magenta(),
-                    x if x < TimeDelta::days(28 * 3) => backup.name().red(),
-                    x if x < TimeDelta::days(180) => backup.name().red().bold(),
-                    _ => backup.name().black().on_red(),
-                }
-            }
-            None => backup.name().normal(),
-        };
         let src = backup.source().path(storages, device)?;
         let dest = backup.destination().path(storages, device)?;
         let cmd_name = backup.command().name();
-        let last_backup_elapsed = match backup.last_backup() {
+        let (last_backup_elapsed, style_on_time_elapsed) = match backup.last_backup() {
             Some(log) => {
                 let time = Local::now() - log.datetime;
-                util::format_summarized_duration(time)
+                let s = util::format_summarized_duration(time);
+                let style = duration_style(time);
+                (style.apply_to(s), style)
             }
-            None => "---".to_string().red(),
+            None => {
+                let style = Style::new().red();
+                (style.apply_to("---".to_string()), style)
+            },
         };
         if !longprint {
             writeln!(
                 writer,
                 "{name:<name_width$} [{dev:<dev_width$}] {src:<src_storage_width$} → {dest:<dest_storage_width$} {last_backup_elapsed}",
-                dev = dev.blue(),
+                name = style_on_time_elapsed.apply_to(backup.name()),
+                dev = console::style(dev).blue(),
                 src = backup.source().storage,
                 dest = backup.destination().storage,
             )?;
@@ -227,8 +231,8 @@ fn write_backups_list(
             writeln!(
                 writer,
                 "[{dev:<dev_width$}] {name:<name_width$} {last_backup_elapsed}",
-                dev = dev.blue(),
-                name = name.bold(),
+                dev = console::style(dev).blue(),
+                name = style_on_time_elapsed.bold().apply_to(backup.name()),
             )?;
             let last_backup_date = match backup.last_backup() {
                 Some(date) => date.datetime.format("%Y-%m-%d %T").to_string(),
@@ -238,27 +242,27 @@ fn write_backups_list(
             writeln!(
                 writer,
                 "{s_src} {src}",
-                s_src = "src :".italic().bright_black(),
+                s_src = console::style("src :").italic().bright().black(),
                 src = src.display()
             )?;
             writeln!(
                 writer,
                 "{s_dest} {dest}",
-                s_dest = "dest:".italic().bright_black(),
+                s_dest = console::style("dest:").italic().bright().black(),
                 dest = dest.display()
             )?;
             writeln!(
                 writer,
                 "{s_last} {last}",
-                s_last = "last:".italic().bright_black(),
+                s_last = console::style("last:").italic().bright().black(),
                 last = last_backup_date,
             )?;
             writeln!(
                 writer,
                 "{s_cmd} {cmd_name}({note})",
-                s_cmd = "cmd :".italic().bright_black(),
-                cmd_name = cmd_name.underline(),
-                note = cmd_note.italic(),
+                s_cmd = console::style("cmd :").italic().bright().black(),
+                cmd_name = console::style(cmd_name).underlined(),
+                note = console::style(cmd_note).italic(),
             )?;
             writeln!(writer)?;
         }
