@@ -5,11 +5,11 @@ mod integrated_test {
     };
 
     use anyhow::{Context, Ok, Result};
-    use assert_cmd::{assert::OutputAssertExt, Command};
+    use assert_cmd::{assert::OutputAssertExt, cargo::CommandCargoExt, Command};
     use dirs::home_dir;
     use git2::Repository;
     use log::trace;
-    use predicates::prelude::predicate;
+    use predicates::{boolean::PredicateBooleanExt, prelude::predicate};
 
     /// Setup global gitconfig if it doesn't exist.
     ///
@@ -157,7 +157,14 @@ mod integrated_test {
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
         println!("head {}", repo_1.head().unwrap().name().unwrap());
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
+        repo_1_branch.set_upstream(Some(
+            format!(
+                "{}/{}",
+                upstream_name,
+                repo_1_branch.name().unwrap().unwrap()
+            )
+            .as_str(),
+        ))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
@@ -231,7 +238,14 @@ mod integrated_test {
         println!("{:?}", bare_repo_dir.read_dir()?);
         // set up upstream branch
         let (mut repo_1_branch, _branch_type) = repo_1.branches(None)?.next().unwrap()?;
-        repo_1_branch.set_upstream(Some(format!("{}/{}", upstream_name, repo_1_branch.name().unwrap().unwrap()).as_str()))?;
+        repo_1_branch.set_upstream(Some(
+            format!(
+                "{}/{}",
+                upstream_name,
+                repo_1_branch.name().unwrap().unwrap()
+            )
+            .as_str(),
+        ))?;
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
@@ -358,6 +372,7 @@ mod integrated_test {
             .assert()
             .success();
 
+        // storage list
         Command::cargo_bin("xdbm")?
             .arg("-c")
             .arg(config_dir_2.path())
@@ -365,7 +380,9 @@ mod integrated_test {
             .arg("list")
             .arg("-l")
             .assert()
-            .success();
+            .success()
+            .stdout(predicate::str::contains("gdrive_docs").and(predicate::str::contains("nas")));
+
         // backup add
         let backup_src = &sample_storage_2.join("foo").join("bar");
         DirBuilder::new().recursive(true).create(backup_src)?;
@@ -387,6 +404,7 @@ mod integrated_test {
             .assert()
             .success();
 
+        // backup add but with existing name
         Command::cargo_bin("xdbm")?
             .arg("-c")
             .arg(config_dir_2.path())
@@ -403,6 +421,32 @@ mod integrated_test {
             .assert()
             .failure()
             .stderr(predicate::str::contains("already"));
+
+        // backup list
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("backup")
+            .arg("list")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("foodoc")
+                    .and(predicate::str::contains("nas"))
+                    .and(predicate::str::contains("gdrive_docs"))
+                    .and(predicate::str::contains("---")),
+            );
+
+        // backup done
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("backup")
+            .arg("done")
+            .arg("foodoc")
+            .arg("0")
+            .assert()
+            .success();
 
         Ok(())
     }
