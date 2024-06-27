@@ -1,5 +1,6 @@
 //! Manipulates storages.
 
+use console::{style, Style, StyledObject};
 use crate::devices;
 use crate::storages::{
     directory::Directory, online_storage::OnlineStorage,
@@ -9,7 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
 use core::panic;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, fs, io, path, u64};
+use std::{collections::BTreeMap, fmt, fs, io, path};
 
 /// YAML file to store known storages..
 pub const STORAGESFILE: &str = "storages.yml";
@@ -48,6 +49,14 @@ impl Storage {
             Self::Physical(_) => "P",
             Self::SubDirectory(_) => "S",
             Self::Online(_) => "O",
+        }
+    }
+
+    pub fn typestyle(&self) -> Style {
+        match self {
+            Storage::Physical(_) => Style::new().cyan(),
+            Storage::SubDirectory(_) => Style::new().yellow(),
+            Storage::Online(_) => Style::new().green(),
         }
     }
 }

@@ -30,6 +30,7 @@ byte-unit = "5.1.4"
 anyhow = "1.0"
 pathdiff = "0.2.1"
 unicode-width = "0.1.13"
+console = "0.15"
 
 [dev-dependencies]
 assert_cmd = "2.0.14"

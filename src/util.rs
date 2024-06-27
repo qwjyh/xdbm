@@ -1,6 +1,7 @@
 use std::path::{self, PathBuf};
 
 use anyhow::{Context, Result};
+use console::Style;
 
 use crate::{
     devices::Device,

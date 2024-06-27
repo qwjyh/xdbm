@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use byte_unit::{Byte, UnitType};
+use console::style;
 use dunce::canonicalize;
 use git2::Repository;
 use inquire::{Confirm, CustomType, Text};
@@ -211,7 +212,7 @@ fn write_storages_list(
                 "-"
             }
         } else {
-            " "
+            ""
         };
         let path = storage.mount_path(device).map_or_else(
             |e| {
@@ -227,23 +228,24 @@ fn write_storages_list(
         } else {
             ""
         };
+        let typestyle = storage.typestyle();
         writeln!(
             writer,
-            "{stype}{isremovable}: {name:<name_width$} {size:>10} {parent:<name_width$} {path}",
-            stype = storage.shorttypename(),
+            "{stype}{isremovable:<1}: {name:<name_width$} {size:>10} {parent:<name_width$} {path}",
+            stype = typestyle.apply_to(storage.shorttypename()),
             isremovable = isremovable,
-            name = storage.name(),
+            name = typestyle.apply_to(storage.name()),
             size = size_str,
-            parent = parent_name,
+            parent = console::style(parent_name).bright().black(),
             path = path,
         )?;
         if long_display {
             let note = match storage {
-                Storage::Physical(s) => s.kind(),
-                Storage::SubDirectory(s) => &s.notes,
-                Storage::Online(s) => &s.provider,
+                Storage::Physical(s) => format!("kind: {}", s.kind()),
+                Storage::SubDirectory(s) => s.notes.clone(),
+                Storage::Online(s) => s.provider.clone(),
             };
-            writeln!(writer, "    {}", note)?;
+            writeln!(writer, "  {}", style(note).italic())?;
         }
     }
     Ok(())
