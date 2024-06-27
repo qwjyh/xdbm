@@ -216,7 +216,7 @@ fn write_backups_list(
             None => {
                 let style = Style::new().red();
                 (style.apply_to("---".to_string()), style)
-            },
+            }
         };
         if !longprint {
             writeln!(

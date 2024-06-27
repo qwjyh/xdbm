@@ -1,6 +1,5 @@
 //! Manipulates storages.
 
-use console::{style, Style, StyledObject};
 use crate::devices;
 use crate::storages::{
     directory::Directory, online_storage::OnlineStorage,
@@ -8,6 +7,7 @@ use crate::storages::{
 };
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
+use console::{style, Style, StyledObject};
 use core::panic;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, fs, io, path};

@@ -180,9 +180,7 @@ mod test {
             local_infos,
         );
         let mut storages = Storages::new();
-        storages
-            .add(storages::Storage::Physical(physical))
-            .unwrap();
+        storages.add(storages::Storage::Physical(physical)).unwrap();
         storages.add(Storage::SubDirectory(directory)).unwrap();
         // assert_eq!(directory.name(), "test_name");
         assert_eq!(

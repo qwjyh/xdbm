@@ -57,9 +57,7 @@ pub(crate) enum Commands {
     Check {},
 
     /// Generate completion script.
-    Completion {
-        shell: clap_complete::Shell,
-    }
+    Completion { shell: clap_complete::Shell },
 }
 
 #[derive(Args, Debug)]
