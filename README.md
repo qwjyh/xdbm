@@ -38,7 +38,7 @@ which manages backups on several storages mounted on multiple devices with a sin
   - [x] backup list
     - [x] status printing
   - [x] backup done
-- [ ] fancy display
+- [x] fancy display
 - [ ] json output
 - [ ] no commit option
 

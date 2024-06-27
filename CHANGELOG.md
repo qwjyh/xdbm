@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Colored output for `storage list` and `backup list` ([#15](https://github.com/qwjyh/xdbm/pull/15))
+
 ## [0.2.1] - 2024-06-19
 
 ### Changed
@@ -30,6 +35,7 @@
 - `backup done` subcommand
 - `completion` subcommand
 
+[Unreleased]: https://github.com/qwjyh/xdbm/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/qwjyh/xdbm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/qwjyh/xdbm/releases/tag/v0.2.0
 [0.1.0]: https://github.com/qwjyh/xdbm/releases/tag/v0.1.0
