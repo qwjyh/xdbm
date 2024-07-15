@@ -2,6 +2,9 @@
 _Cross device backup manager_,
 which manages backups on several storages mounted on multiple devices with a single repository.
 
+## Install
+- `git` is required for sync
+
 ## Usage
 1. `xdbm init` to setup new device(i.e. PC).
 2. `xdbm storage add` to add storages, or `xdbm storage bind` to make existing storages available on new device.
@@ -24,7 +27,7 @@ which manages backups on several storages mounted on multiple devices with a sin
 - [ ] write test for storage subcommand
   - [x] storage add online
   - [x] storage add directory
-  - [ ] storage list
+  - [x] storage list
 - [x] update storage bind command
 - [ ] add storage remove command
 - [ ] add sync subcommand

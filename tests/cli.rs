@@ -5,7 +5,7 @@ mod integrated_test {
     };
 
     use anyhow::{Context, Ok, Result};
-    use assert_cmd::{assert::OutputAssertExt, cargo::CommandCargoExt, Command};
+    use assert_cmd::{assert::OutputAssertExt, Command};
     use dirs::home_dir;
     use git2::Repository;
     use log::trace;
