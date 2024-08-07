@@ -144,7 +144,6 @@ pub trait StorageExt {
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo>;
 
     /// Get mount path of `self` on `device`.
-    /// `storages` is a `BTreeMap` with key of storage name and value of the storage.
     fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf>;
 
     /// Add local info of `device` to `self`.

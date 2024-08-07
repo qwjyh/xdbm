@@ -31,6 +31,7 @@ mod cmd_backup;
 mod cmd_check;
 mod cmd_completion;
 mod cmd_init;
+mod cmd_status;
 mod cmd_storage;
 mod cmd_sync;
 mod devices;
@@ -91,6 +92,11 @@ fn main() -> Result<()> {
             println!("{}", &config_dir.display());
         }
         Commands::Sync { remote_name } => cmd_sync::cmd_sync(&config_dir, remote_name)?,
+        Commands::Status {
+            path,
+            storage,
+            backup,
+        } => cmd_status::cmd_status(path, storage, backup, &config_dir)?,
         Commands::Check {} => cmd_check::cmd_check(&config_dir)?,
         Commands::Backup(backup) => {
             trace!("backup subcommand with args: {:?}", backup);
