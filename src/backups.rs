@@ -44,10 +44,12 @@ impl BackupTarget {
         }
     }
 
-    pub fn path(&self, storages: &Storages, device: &Device) -> Result<PathBuf> {
+    /// Get full path of the [`BackupTarget`].
+    pub fn path(&self, storages: &Storages, device: &Device) -> Option<PathBuf> {
         let parent = storages.get(&self.storage).unwrap();
-        let parent_path = parent.mount_path(device)?;
-        Ok(parent_path.join(self.path.clone()))
+        let parent_path = parent
+            .mount_path(device)?;
+        Some(parent_path.join(self.path.clone()))
     }
 }
 

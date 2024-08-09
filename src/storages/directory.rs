@@ -19,7 +19,7 @@ pub struct Directory {
     /// Relative path to the parent storage.
     relative_path: path::PathBuf,
     pub notes: String,
-    /// Device and localinfo pairs.
+    /// [`devices::Device`] name and localinfo pairs.
     local_infos: BTreeMap<String, LocalInfo>,
 }
 
@@ -80,7 +80,8 @@ impl Directory {
         let parent_mount_path = self
             .parent(storages)
             .context("Can't find parent storage")?
-            .mount_path(device)?;
+            .mount_path(device)
+            .context("Can't find mount path")?;
         Ok(parent_mount_path.join(self.relative_path.clone()))
     }
 }
@@ -98,12 +99,10 @@ impl StorageExt for Directory {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
-        Ok(self
-            .local_infos
+    fn mount_path(&self, device: &devices::Device) -> Option<std::path::PathBuf> {
+        self.local_infos
             .get(&device.name())
-            .context(format!("LocalInfo for storage: {} not found", &self.name()))?
-            .mount_path())
+            .map(|info| info.mount_path())
     }
 
     /// This method doesn't use `mount_path`.

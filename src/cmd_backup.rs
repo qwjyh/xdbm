@@ -188,10 +188,16 @@ fn write_backups_list(
         ))?;
         name_width = name_width.max(backup.name().width());
         dev_width = dev_width.max(dev.width());
-        let src = backup.source().path(storages, device)?;
+        let src = backup
+            .source()
+            .path(storages, device)
+            .context("Couldn't get path for source")?;
         src_width = src_width.max(format!("{}", src.display()).width());
         src_storage_width = src_storage_width.max(backup.source().storage.width());
-        let dest = backup.destination().path(storages, device)?;
+        let dest = backup
+            .destination()
+            .path(storages, device)
+            .context("Couldn't get path for destination")?;
         dest_width = dest_width.max(format!("{}", dest.display()).width());
         dest_storage_width = dest_storage_width.max(backup.destination().storage.width());
         let cmd_name = backup.command().name();
@@ -203,8 +209,14 @@ fn write_backups_list(
             "Couldn't find the device specified in the backup config: {}",
             backup.name()
         ))?;
-        let src = backup.source().path(storages, device)?;
-        let dest = backup.destination().path(storages, device)?;
+        let src = backup
+            .source()
+            .path(storages, device)
+            .context("Couldn't get path for source")?;
+        let dest = backup
+            .destination()
+            .path(storages, device)
+            .context("Couldn't get path for destination")?;
         let cmd_name = backup.command().name();
         let (last_backup_elapsed, style_on_time_elapsed) = match backup.last_backup() {
             Some(log) => {

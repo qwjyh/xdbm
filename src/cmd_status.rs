@@ -6,9 +6,9 @@ use std::{
 };
 
 use crate::{
-    backups::Backups,
+    backups::{Backup, Backups},
     devices::{self, Device},
-    storages::{self, StorageExt, Storages},
+    storages::{self, Storage, StorageExt, Storages},
     util,
 };
 
@@ -20,12 +20,14 @@ pub(crate) fn cmd_status(
     config_dir: &Path,
 ) -> Result<()> {
     let path = path.unwrap_or(env::current_dir().context("Failed to get current directory.")?);
-    let device = devices::get_device(config_dir)?;
+    let currrent_device = devices::get_device(config_dir)?;
 
     if show_storage {
         let storages = storages::Storages::read(config_dir)?;
-        let storage = util::min_parent_storage(&path, &storages, &device);
+        let storage = util::min_parent_storage(&path, &storages, &currrent_device);
+        trace!("storage {:?}", storage);
 
+        // TODO: recursively trace all storages for subdirectory?
         match storage {
             Some(storage) => {
                 println!("Storage: {}", storage.0.name())
@@ -38,44 +40,217 @@ pub(crate) fn cmd_status(
     if show_backup {
         let devices = devices::get_devices(config_dir)?;
         let storages = storages::Storages::read(config_dir)?;
-        let backups = Backups::read(config_dir, &device)?;
-        let covering_backup = devices
+        let backups = Backups::read(config_dir, &currrent_device)?;
+
+        let (target_storage, target_diff_from_storage) =
+            util::min_parent_storage(&path, &storages, &currrent_device)
+                .context("Target path is not covered in any storage")?;
+
+        let covering_backup: Vec<_> = devices
             .iter()
-            .map(|device| (device, parent_backups(&path, &backups, &storages, device)));
+            .map(|device| {
+                (
+                    device,
+                    parent_backups(
+                        &target_diff_from_storage,
+                        target_storage,
+                        &backups,
+                        &storages,
+                        device,
+                    ),
+                )
+            })
+            .collect();
+        trace!("{:?}", covering_backup.first());
+
+        let name_len = &covering_backup
+            .iter()
+            .map(|(_, backups)| {
+                backups
+                    .iter()
+                    .map(|(backup, _path)| backup.name().len())
+                    .max()
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(5);
 
         for (backup_device, covering_backups) in covering_backup {
             println!("Device: {}", backup_device.name());
-            for backup in covering_backups {
-                println!("  {}", console::style(backup.0).bold());
+            for (backup, path_from_backup) in covering_backups {
+                println!(
+                    "  {:<name_len$} {}",
+                    console::style(backup.name()).bold(),
+                    path_from_backup.display(),
+                );
             }
         }
     }
     todo!()
 }
 
+/// Get [`Backup`]s for `device` which covers `target_path`.
+/// Returns [`Vec`] of tuple of [`Backup`] and relative path from the backup root.
 fn parent_backups<'a>(
-    target_path: &'a PathBuf,
+    target_path_from_storage: &'a Path,
+    target_storage: &'a Storage,
     backups: &'a Backups,
     storages: &'a Storages,
     device: &'a Device,
-) -> Vec<(&'a String, PathBuf)> {
+) -> Vec<(&'a Backup, PathBuf)> {
+    trace!("Dev {:?}", device.name());
+    let target_path = match target_storage.mount_path(device) {
+        Some(target_path) => target_path.join(target_path_from_storage),
+        None => return vec![],
+    };
+    trace!("Path on the device {:?}", target_path);
     backups
         .list
         .iter()
-        .filter_map(|(k, v)| {
-            let backup_path = match v.source().path(storages, device) {
-                Ok(path) => path,
-                Err(e) => {
-                    error!("Error while getting backup source path: {}", e);
-                    return None;
-                }
-            };
-            let diff = pathdiff::diff_paths(target_path, backup_path)?;
+        .filter_map(|(_k, backup)| {
+            let backup_path = backup.source().path(storages, device)?;
+            let diff = pathdiff::diff_paths(&target_path, backup_path)?;
             if diff.components().any(|c| c == path::Component::ParentDir) {
                 None
             } else {
-                Some((k, diff))
+                Some((backup, diff))
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
+
+    use crate::{
+        backups::{self, ExternallyInvoked},
+        devices,
+        storages::{self, online_storage::OnlineStorage, StorageExt},
+        util,
+    };
+
+    use super::parent_backups;
+
+    #[test]
+    fn test_parent_backups() {
+        let device1 = devices::Device::new("device_1".to_string());
+        let mut storage1 = storages::Storage::Online(OnlineStorage::new(
+            "storage_1".to_string(),
+            "smb".to_string(),
+            1_000_000,
+            "str1".to_string(),
+            PathBuf::from("/home/foo/"),
+            &device1,
+        ));
+        let storage2 = storages::Storage::Online(OnlineStorage::new(
+            "storage_2".to_string(),
+            "smb".to_string(),
+            1_000_000_000,
+            "str2".to_string(),
+            PathBuf::from("/"),
+            &device1,
+        ));
+        let device2 = devices::Device::new("device_2".to_string());
+        storage1
+            .bound_on_device("alias".to_string(), PathBuf::from("/mnt/dev"), &device2)
+            .unwrap();
+        let storage3 = storages::Storage::Online(OnlineStorage::new(
+            "storage_3".to_string(),
+            "smb".to_string(),
+            2_000_000_000,
+            "str2".to_string(),
+            PathBuf::from("/"),
+            &device2,
+        ));
+        let storages = {
+            let mut storages = storages::Storages::new();
+            storages.add(storage1).unwrap();
+            storages.add(storage2).unwrap();
+            storages.add(storage3).unwrap();
+            storages
+        };
+
+        let backup1 = backups::Backup::new(
+            "backup_1".to_string(),
+            device1.name().to_string(),
+            backups::BackupTarget {
+                storage: "storage_1".to_string(),
+                path: PathBuf::from("bar"),
+            },
+            backups::BackupTarget {
+                storage: "storage_1".to_string(),
+                path: PathBuf::from("hoge"),
+            },
+            backups::BackupCommand::ExternallyInvoked(ExternallyInvoked::new(
+                "cmd".to_string(),
+                "".to_string(),
+            )),
+        );
+        let backup2 = backups::Backup::new(
+            "backup_2".to_string(),
+            device2.name().to_string(),
+            backups::BackupTarget {
+                storage: "storage_1".to_string(),
+                path: PathBuf::from(""),
+            },
+            backups::BackupTarget {
+                storage: "storage_3".to_string(),
+                path: PathBuf::from("foo"),
+            },
+            backups::BackupCommand::ExternallyInvoked(ExternallyInvoked::new(
+                "cmd".to_string(),
+                "".to_string(),
+            )),
+        );
+
+        let backups = {
+            let mut backups = backups::Backups::new();
+            backups.add(backup1).unwrap();
+            backups.add(backup2).unwrap();
+            backups
+        };
+
+        let target_path1 = PathBuf::from("/home/foo/bar/hoo");
+        let (target_storage1, target_path_from_storage1) =
+            util::min_parent_storage(&target_path1, &storages, &device1)
+                .expect("Failed to get storage");
+        let covering_backups_1 = parent_backups(
+            &target_path_from_storage1,
+            target_storage1,
+            &backups,
+            &storages,
+            &device1,
+        );
+        assert_eq!(covering_backups_1.len(), 2);
+
+        let target_path2 = PathBuf::from("/mnt/");
+        let (target_storage2, target_path_from_storage2) =
+            util::min_parent_storage(&target_path2, &storages, &device2)
+                .expect("Failed to get storage");
+        let covering_backups_2 = parent_backups(
+            &target_path_from_storage2,
+            target_storage2,
+            &backups,
+            &storages,
+            &device2,
+        );
+        assert_eq!(covering_backups_2.len(), 0);
+
+        let target_path3 = PathBuf::from("/mnt/dev/foo");
+        let (target_storage3, target_path_from_storage3) =
+            util::min_parent_storage(&target_path3, &storages, &device2)
+                .expect("Failed to get storage");
+        let covering_backups_3 = parent_backups(
+            &target_path_from_storage3,
+            target_storage3,
+            &backups,
+            &storages,
+            &device2,
+        );
+        assert_eq!(covering_backups_3.len(), 1);
+        let mut covering_backup_names_3 = covering_backups_3.iter().map(|(backup, _)| backup.name());
+        assert_eq!(covering_backup_names_3.next().unwrap(), "backup_2");
+        assert!(covering_backup_names_3.next().is_none());
+    }
 }

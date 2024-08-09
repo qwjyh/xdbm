@@ -61,12 +61,10 @@ impl StorageExt for OnlineStorage {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(&self, device: &devices::Device) -> Result<std::path::PathBuf> {
-        Ok(self
-            .local_infos
+    fn mount_path(&self, device: &devices::Device) -> Option<std::path::PathBuf> {
+        self.local_infos
             .get(&device.name())
-            .context(format!("LocalInfo for storage: {} not found", &self.name()))?
-            .mount_path())
+            .map(|info| info.mount_path())
     }
 
     fn bound_on_device(

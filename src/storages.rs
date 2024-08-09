@@ -78,7 +78,7 @@ impl StorageExt for Storage {
         }
     }
 
-    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
+    fn mount_path(&self, device: &devices::Device) -> Option<path::PathBuf> {
         match self {
             Self::Physical(s) => s.mount_path(device),
             Self::SubDirectory(s) => s.mount_path(device),
@@ -144,7 +144,8 @@ pub trait StorageExt {
     fn local_info(&self, device: &devices::Device) -> Option<&local_info::LocalInfo>;
 
     /// Get mount path of `self` on `device`.
-    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf>;
+    /// Return [`None`] if the storage([`self`]) is not configured for the `device`.
+    fn mount_path(&self, device: &devices::Device) -> Option<path::PathBuf>;
 
     /// Add local info of `device` to `self`.
     fn bound_on_device(
