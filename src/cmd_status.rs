@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use console::Style;
+use chrono::Local;
 use std::{
     env,
     path::{self, Path, PathBuf},
@@ -40,7 +40,11 @@ pub(crate) fn cmd_status(
     if show_backup {
         let devices = devices::get_devices(config_dir)?;
         let storages = storages::Storages::read(config_dir)?;
-        let backups = Backups::read(config_dir, &currrent_device)?;
+        let backups = devices.iter().map(|device| {
+            Backups::read(config_dir, device)
+                .context("Backups were not found")
+                .unwrap()
+        });
 
         let (target_storage, target_diff_from_storage) =
             util::min_parent_storage(&path, &storages, &currrent_device)
@@ -48,13 +52,27 @@ pub(crate) fn cmd_status(
 
         let covering_backup: Vec<_> = devices
             .iter()
-            .map(|device| {
+            .zip(backups)
+            .map(|(device, backups)| {
+                debug!(
+                    "dev {}, storage {:?}",
+                    device.name(),
+                    backups
+                        .list
+                        .iter()
+                        .map(|(backup_name, backup)| format!(
+                            "{} {}",
+                            backup_name,
+                            backup.source().storage
+                        ))
+                        .collect::<Vec<_>>()
+                );
                 (
                     device,
                     parent_backups(
                         &target_diff_from_storage,
                         target_storage,
-                        &backups,
+                        backups,
                         &storages,
                         device,
                     ),
@@ -78,9 +96,14 @@ pub(crate) fn cmd_status(
         for (backup_device, covering_backups) in covering_backup {
             println!("Device: {}", backup_device.name());
             for (backup, path_from_backup) in covering_backups {
+                let last_backup = match backup.last_backup() {
+                    Some(log) => util::format_summarized_duration(Local::now() - log.datetime),
+                    None => "---".to_string(),
+                };
                 println!(
-                    "  {:<name_len$} {}",
+                    "  {:<name_len$} {} {}",
                     console::style(backup.name()).bold(),
+                    last_backup,
                     path_from_backup.display(),
                 );
             }
@@ -94,10 +117,10 @@ pub(crate) fn cmd_status(
 fn parent_backups<'a>(
     target_path_from_storage: &'a Path,
     target_storage: &'a Storage,
-    backups: &'a Backups,
+    backups: Backups,
     storages: &'a Storages,
     device: &'a Device,
-) -> Vec<(&'a Backup, PathBuf)> {
+) -> Vec<(Backup, PathBuf)> {
     trace!("Dev {:?}", device.name());
     let target_path = match target_storage.mount_path(device) {
         Some(target_path) => target_path.join(target_path_from_storage),
@@ -106,10 +129,12 @@ fn parent_backups<'a>(
     trace!("Path on the device {:?}", target_path);
     backups
         .list
-        .iter()
+        .into_iter()
         .filter_map(|(_k, backup)| {
             let backup_path = backup.source().path(storages, device)?;
-            let diff = pathdiff::diff_paths(&target_path, backup_path)?;
+            trace!("{:?}", backup_path.components());
+            let diff = pathdiff::diff_paths(&target_path, backup_path.clone())?;
+            trace!("Backup: {:?}, Diff: {:?}", backup_path, diff);
             if diff.components().any(|c| c == path::Component::ParentDir) {
                 None
             } else {
@@ -218,7 +243,7 @@ mod test {
         let covering_backups_1 = parent_backups(
             &target_path_from_storage1,
             target_storage1,
-            &backups,
+            backups.clone(),
             &storages,
             &device1,
         );
@@ -231,7 +256,7 @@ mod test {
         let covering_backups_2 = parent_backups(
             &target_path_from_storage2,
             target_storage2,
-            &backups,
+            backups.clone(),
             &storages,
             &device2,
         );
@@ -244,12 +269,13 @@ mod test {
         let covering_backups_3 = parent_backups(
             &target_path_from_storage3,
             target_storage3,
-            &backups,
+            backups,
             &storages,
             &device2,
         );
         assert_eq!(covering_backups_3.len(), 1);
-        let mut covering_backup_names_3 = covering_backups_3.iter().map(|(backup, _)| backup.name());
+        let mut covering_backup_names_3 =
+            covering_backups_3.iter().map(|(backup, _)| backup.name());
         assert_eq!(covering_backup_names_3.next().unwrap(), "backup_2");
         assert!(covering_backup_names_3.next().is_none());
     }

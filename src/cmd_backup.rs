@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
-use chrono::{Local, TimeDelta};
+use chrono::Local;
 use console::Style;
 use dunce::canonicalize;
 use git2::Repository;
@@ -154,17 +154,6 @@ pub fn cmd_backup_list(
     Ok(())
 }
 
-fn duration_style(time: TimeDelta) -> Style {
-    match time {
-        x if x < TimeDelta::days(7) => Style::new().green(),
-        x if x < TimeDelta::days(14) => Style::new().yellow(),
-        x if x < TimeDelta::days(28) => Style::new().magenta(),
-        x if x < TimeDelta::days(28 * 3) => Style::new().red(),
-        x if x < TimeDelta::days(180) => Style::new().red().bold(),
-        _ => Style::new().on_red().black(),
-    }
-}
-
 /// TODO: status printing
 fn write_backups_list(
     mut writer: impl io::Write,
@@ -222,7 +211,7 @@ fn write_backups_list(
             Some(log) => {
                 let time = Local::now() - log.datetime;
                 let s = util::format_summarized_duration(time);
-                let style = duration_style(time);
+                let style = util::duration_style(time);
                 (style.apply_to(s), style)
             }
             None => {

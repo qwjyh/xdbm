@@ -27,7 +27,7 @@ pub fn backups_file(device: &Device) -> PathBuf {
 }
 
 /// Targets for backup source or destination.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupTarget {
     /// `name()` of [`crate::storages::Storage`].
     /// Use `String` for serialization/deserialization.
@@ -47,14 +47,13 @@ impl BackupTarget {
     /// Get full path of the [`BackupTarget`].
     pub fn path(&self, storages: &Storages, device: &Device) -> Option<PathBuf> {
         let parent = storages.get(&self.storage).unwrap();
-        let parent_path = parent
-            .mount_path(device)?;
+        let parent_path = parent.mount_path(device)?;
         Some(parent_path.join(self.path.clone()))
     }
 }
 
 /// Type of backup commands.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BackupCommand {
     ExternallyInvoked(ExternallyInvoked),
 }
@@ -81,7 +80,7 @@ impl BackupCommandExt for BackupCommand {
 
 /// Backup commands which is not invoked from xdbm itself.
 /// Call xdbm externally to record backup datetime and status.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternallyInvoked {
     name: String,
     pub note: String,
@@ -104,7 +103,7 @@ impl BackupCommandExt for ExternallyInvoked {
 }
 
 /// Backup execution log.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupLog {
     pub datetime: DateTime<Local>,
     status: BackupResult,
@@ -124,7 +123,7 @@ impl BackupLog {
 }
 
 /// Result of backup.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BackupResult {
     Success,
     Failure,
@@ -141,7 +140,7 @@ impl BackupResult {
 }
 
 /// Backup source, destination, command and logs.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backup {
     /// must be unique
     name: String,
@@ -202,7 +201,7 @@ impl Backup {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backups {
     pub list: BTreeMap<String, Backup>,
 }

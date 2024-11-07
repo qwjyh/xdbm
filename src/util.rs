@@ -1,6 +1,7 @@
 use std::path::{self, PathBuf};
 
 use anyhow::{Context, Result};
+use chrono::TimeDelta;
 use console::Style;
 
 use crate::{
@@ -56,6 +57,17 @@ pub fn format_summarized_duration(dt: chrono::Duration) -> String {
         format!("{}h", dt.num_hours())
     } else {
         format!("{}min", dt.num_minutes())
+    }
+}
+
+pub fn duration_style(time: TimeDelta) -> Style {
+    match time {
+        x if x < TimeDelta::days(7) => Style::new().green(),
+        x if x < TimeDelta::days(14) => Style::new().yellow(),
+        x if x < TimeDelta::days(28) => Style::new().magenta(),
+        x if x < TimeDelta::days(28 * 3) => Style::new().red(),
+        x if x < TimeDelta::days(180) => Style::new().red().bold(),
+        _ => Style::new().on_red().black(),
     }
 }
 
