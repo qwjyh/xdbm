@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::Local;
+use console::Style;
 use std::{
     env,
     path::{self, Path, PathBuf},
@@ -96,14 +97,20 @@ pub(crate) fn cmd_status(
         for (backup_device, covering_backups) in covering_backup {
             println!("Device: {}", backup_device.name());
             for (backup, path_from_backup) in covering_backups {
-                let last_backup = match backup.last_backup() {
-                    Some(log) => util::format_summarized_duration(Local::now() - log.datetime),
-                    None => "---".to_string(),
+                let (last_backup, style) = match backup.last_backup() {
+                    Some(log) => {
+                        let timediff = Local::now() - log.datetime;
+                        (
+                            util::format_summarized_duration(timediff),
+                            util::duration_style(timediff),
+                        )
+                    }
+                    None => ("---".to_string(), Style::new().red()),
                 };
                 println!(
                     "  {:<name_len$} {} {}",
                     console::style(backup.name()).bold(),
-                    last_backup,
+                    style.apply_to(last_backup),
                     path_from_backup.display(),
                 );
             }
