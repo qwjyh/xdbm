@@ -725,10 +725,7 @@ mod integrated_test {
         //      - sample_storage_2/abcd/efgh -> sample_directory/Downloads/abcd/efgh
         let backup_src = &sample_storage_2.join("abcd").join("efgh");
         DirBuilder::new().recursive(true).create(backup_src)?;
-        let backup_dest = &sample_directory
-            .join("Downloads")
-            .join("abcd")
-            .join("efgh");
+        let backup_dest = &sample_directory.join("Downloads").join("abcd").join("efgh");
         DirBuilder::new().recursive(true).create(backup_dest)?;
         Command::cargo_bin("xdbm")?
             .arg("-c")
