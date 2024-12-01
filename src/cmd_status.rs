@@ -109,7 +109,8 @@ pub(crate) fn cmd_status(
             }
         }
     }
-    todo!()
+
+    Ok(())
 }
 
 /// Get [`Backup`]s for `device` which covers `target_path`.
