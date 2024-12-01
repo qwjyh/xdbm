@@ -145,7 +145,7 @@ mod integrated_test {
 
         // bare-repo
         let bare_repo_dir = assert_fs::TempDir::new()?;
-        let bare_repo = Repository::init_bare(&bare_repo_dir)?;
+        let _bare_repo = Repository::init_bare(&bare_repo_dir)?;
         // push to bare repository
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
@@ -229,7 +229,7 @@ mod integrated_test {
 
         // bare-repo
         let bare_repo_dir = assert_fs::TempDir::new()?;
-        let bare_repo = Repository::init_bare(&bare_repo_dir)?;
+        let _bare_repo = Repository::init_bare(&bare_repo_dir)?;
         // push to bare repository
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
