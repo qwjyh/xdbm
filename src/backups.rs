@@ -33,22 +33,27 @@ pub struct BackupTarget {
     /// Use `String` for serialization/deserialization.
     pub storage: String,
     /// Relative path to the `storage`.
-    pub path: PathBuf,
+    pub path: Vec<String>,
 }
 
 impl BackupTarget {
-    pub fn new(storage_name: String, relative_path: PathBuf) -> Self {
-        BackupTarget {
+    pub fn new(storage_name: String, relative_path: PathBuf) -> Result<Self> {
+        let relative_path = relative_path
+            .components()
+            .map(|c| c.as_os_str().to_str().map(|s| s.to_owned()))
+            .collect::<Option<_>>()
+            .context("Path contains non-utf8 character")?;
+        Ok(BackupTarget {
             storage: storage_name,
             path: relative_path,
-        }
+        })
     }
 
     /// Get full path of the [`BackupTarget`].
     pub fn path(&self, storages: &Storages, device: &Device) -> Option<PathBuf> {
         let parent = storages.get(&self.storage).unwrap();
         let parent_path = parent.mount_path(device)?;
-        Some(parent_path.join(self.path.clone()))
+        Some(parent_path.join(self.path.clone().iter().collect::<PathBuf>()))
     }
 }
 

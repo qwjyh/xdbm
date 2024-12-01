@@ -146,7 +146,7 @@ fn parent_backups<'a>(
 
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, vec};
 
     use crate::{
         backups::{self, ExternallyInvoked},
@@ -201,11 +201,11 @@ mod test {
             device1.name().to_string(),
             backups::BackupTarget {
                 storage: "storage_1".to_string(),
-                path: PathBuf::from("bar"),
+                path: vec!["bar".to_string()],
             },
             backups::BackupTarget {
                 storage: "storage_1".to_string(),
-                path: PathBuf::from("hoge"),
+                path: vec!["hoge".to_string()],
             },
             backups::BackupCommand::ExternallyInvoked(ExternallyInvoked::new(
                 "cmd".to_string(),
@@ -217,11 +217,11 @@ mod test {
             device2.name().to_string(),
             backups::BackupTarget {
                 storage: "storage_1".to_string(),
-                path: PathBuf::from(""),
+                path: vec!["".to_string()],
             },
             backups::BackupTarget {
                 storage: "storage_3".to_string(),
-                path: PathBuf::from("foo"),
+                path: vec!["foo".to_string()],
             },
             backups::BackupCommand::ExternallyInvoked(ExternallyInvoked::new(
                 "cmd".to_string(),

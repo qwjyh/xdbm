@@ -89,8 +89,8 @@ fn new_backup(
     Ok(Backup::new(
         name,
         device.name(),
-        src_target,
-        dest_target,
+        src_target?,
+        dest_target?,
         command,
     ))
 }
@@ -361,9 +361,9 @@ mod test {
             &storages,
         )?;
         assert!(backup.source().storage == "online");
-        assert_eq!(backup.source().path, PathBuf::from("docs"));
+        assert_eq!(backup.source().path, vec!["docs"]);
         assert!(backup.destination().storage == "online");
-        assert!(backup.destination().path == PathBuf::from("tmp"));
+        assert!(backup.destination().path == vec!["tmp"]);
         Ok(())
     }
 }

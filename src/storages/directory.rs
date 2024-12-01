@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::{collections::BTreeMap, fmt, path};
 
 use crate::devices;
@@ -17,7 +18,7 @@ pub struct Directory {
     /// ID of parent storage.
     parent: String,
     /// Relative path to the parent storage.
-    relative_path: path::PathBuf,
+    relative_path: Vec<String>,
     pub notes: String,
     /// [`devices::Device`] name and localinfo pairs.
     local_infos: BTreeMap<String, LocalInfo>,
@@ -34,14 +35,19 @@ impl Directory {
         relative_path: path::PathBuf,
         notes: String,
         local_infos: BTreeMap<String, LocalInfo>,
-    ) -> Directory {
-        Directory {
+    ) -> Result<Directory> {
+        let relative_path = relative_path
+            .components()
+            .map(|c| c.as_os_str().to_str().map(|s| s.to_owned()))
+            .collect::<Option<Vec<_>>>()
+            .context("Path contains non-utf8 character")?;
+        Ok(Directory {
             name,
             parent,
             relative_path,
             notes,
             local_infos,
-        }
+        })
     }
 
     pub fn try_from_device_path(
@@ -56,23 +62,23 @@ impl Directory {
             .context("Failed to compare diff of paths")?;
         trace!("Selected parent: {}", parent.name());
         let local_info = LocalInfo::new(alias, path);
-        Ok(Directory::new(
+        Directory::new(
             name,
             parent.name().to_string(),
             diff_path,
             notes,
             BTreeMap::from([(device.name(), local_info)]),
-        ))
+        )
     }
 
     pub fn update_note(self, notes: String) -> Directory {
-        Directory::new(
-            self.name,
-            self.parent,
-            self.relative_path,
+        Directory {
+            name: self.name,
+            parent: self.parent,
+            relative_path: self.relative_path,
             notes,
-            self.local_infos,
-        )
+            local_infos: self.local_infos,
+        }
     }
 
     /// Resolve mount path of directory with current device.
@@ -82,7 +88,7 @@ impl Directory {
             .context("Can't find parent storage")?
             .mount_path(device)
             .context("Can't find mount path")?;
-        Ok(parent_mount_path.join(self.relative_path.clone()))
+        Ok(parent_mount_path.join(self.relative_path.clone().iter().collect::<PathBuf>()))
     }
 }
 
@@ -133,7 +139,7 @@ impl fmt::Display for Directory {
             "S {name:<10} < {parent:<10}{relative_path:<10} : {notes}",
             name = self.name(),
             parent = self.parent,
-            relative_path = self.relative_path.display(),
+            relative_path = self.relative_path.iter().collect::<PathBuf>().display(),
             notes = self.notes,
         )
     }
@@ -177,7 +183,8 @@ mod test {
             "subdir".into(),
             "some note".to_string(),
             local_infos,
-        );
+        )
+        .unwrap();
         let mut storages = Storages::new();
         storages.add(storages::Storage::Physical(physical)).unwrap();
         storages.add(Storage::SubDirectory(directory)).unwrap();
