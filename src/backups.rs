@@ -180,7 +180,7 @@ impl Backup {
         &self.name
     }
 
-    pub fn device<'a>(&'a self, devices: &'a [Device]) -> Option<&Device> {
+    pub fn device<'a>(&'a self, devices: &'a [Device]) -> Option<&'a Device> {
         devices.iter().find(|dev| dev.name() == self.device)
     }
 

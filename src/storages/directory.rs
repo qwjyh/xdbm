@@ -127,7 +127,7 @@ impl StorageExt for Directory {
     }
 
     // Get parent `&Storage` of directory.
-    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&Storage> {
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&'a Storage> {
         storages.get(&self.parent)
     }
 }
