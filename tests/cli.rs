@@ -563,7 +563,7 @@ mod integrated_test {
             .success()
             .stdout(
                 predicate::str::contains("nas")
-                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("second").not())
                     .and(predicate::str::contains("foodoc").not()),
             );
 
