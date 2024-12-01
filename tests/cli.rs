@@ -463,6 +463,49 @@ mod integrated_test {
                     .and(predicate::str::contains("---").not()),
             );
 
+        // status
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .assert()
+            .success();
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-s")
+            .arg(backup_src.clone().join("foo"))
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("nas").and(predicate::str::contains("foodoc").not()));
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src.clone().join("foo"))
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("foodoc")),
+            );
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src.clone().parent().unwrap())
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("foodoc").not()),
+            );
+
         Ok(())
     }
 }
