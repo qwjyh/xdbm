@@ -448,6 +448,21 @@ mod integrated_test {
             .assert()
             .success();
 
+        // backup list after backup done
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("backup")
+            .arg("list")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("foodoc")
+                    .and(predicate::str::contains("nas"))
+                    .and(predicate::str::contains("gdrive_docs"))
+                    .and(predicate::str::contains("---").not()),
+            );
+
         Ok(())
     }
 }
