@@ -135,7 +135,11 @@ fn parent_backups<'a>(
             trace!("{:?}", backup_path.components());
             let diff = pathdiff::diff_paths(&target_path, backup_path.clone())?;
             trace!("Backup: {:?}, Diff: {:?}", backup_path, diff);
-            if diff.components().any(|c| c == path::Component::ParentDir) {
+            // note: Should `RootDir` is included in this list?
+            if diff
+                .components()
+                .any(|c| matches!(c, path::Component::ParentDir | path::Component::Prefix(_)))
+            {
                 None
             } else {
                 Some((backup, diff))
