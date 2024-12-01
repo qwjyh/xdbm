@@ -5,6 +5,7 @@
 ### Changed
 - Colored output for `storage list` and `backup list` ([#15](https://github.com/qwjyh/xdbm/pull/15))
 - **BREAKING** Relative path is changed from `PathBuf` to `Vector<String>` for portability. This means that existing config files need to be changed.
+- Add `status` subcommand to see storage and backup on given path or current working directory ([#17](https://github.com/qwjyh/xdbm/pull/17)).
 
 ## [0.2.1] - 2024-06-19
 
