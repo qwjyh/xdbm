@@ -21,11 +21,11 @@ pub(crate) fn cmd_status(
     config_dir: &Path,
 ) -> Result<()> {
     let path = path.unwrap_or(env::current_dir().context("Failed to get current directory.")?);
-    let currrent_device = devices::get_device(config_dir)?;
+    let current_device = devices::get_device(config_dir)?;
 
     if show_storage {
         let storages = storages::Storages::read(config_dir)?;
-        let storage = util::min_parent_storage(&path, &storages, &currrent_device);
+        let storage = util::min_parent_storage(&path, &storages, &current_device);
         trace!("storage {:?}", storage);
 
         // TODO: recursively trace all storages for subdirectory?
@@ -48,7 +48,7 @@ pub(crate) fn cmd_status(
         });
 
         let (target_storage, target_diff_from_storage) =
-            util::min_parent_storage(&path, &storages, &currrent_device)
+            util::min_parent_storage(&path, &storages, &current_device)
                 .context("Target path is not covered in any storage")?;
 
         let covering_backup: Vec<_> = devices
