@@ -49,10 +49,10 @@ pub(crate) enum Commands {
         /// Target path. Default is the current directory.
         path: Option<PathBuf>,
         /// Show storage which the path belongs to.
-        #[arg(short)]
+        #[arg(short, long)]
         storage: bool,
         /// Show backup config covering the path.
-        #[arg(short)]
+        #[arg(short, long)]
         backup: bool,
     },
 
