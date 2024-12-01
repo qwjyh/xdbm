@@ -21,7 +21,10 @@ pub fn min_parent_storage<'a>(
         .filter_map(|(k, storage)| {
             let storage_path = storage.mount_path(device)?;
             let diff = pathdiff::diff_paths(path, storage_path)?;
-            if diff.components().any(|c| c == path::Component::ParentDir) {
+            if diff
+                .components()
+                .any(|c| matches!(c, path::Component::ParentDir | path::Component::Prefix(_)))
+            {
                 None
             } else {
                 Some((k, diff))
