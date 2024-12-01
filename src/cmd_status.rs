@@ -95,6 +95,10 @@ pub(crate) fn cmd_status(
             .unwrap_or(5);
 
         for (backup_device, covering_backups) in covering_backup {
+            if covering_backups.is_empty() {
+                continue;
+            }
+
             println!("Device: {}", backup_device.name());
             for (backup, path_from_backup) in covering_backups {
                 let (last_backup, style) = match backup.last_backup() {
