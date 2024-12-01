@@ -44,6 +44,18 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Backup(BackupSubCommands),
 
+    /// Print status for the given path.
+    Status {
+        /// Target path. Default is the current directory.
+        path: Option<PathBuf>,
+        /// Show storage which the path belongs to.
+        #[arg(short, long)]
+        storage: bool,
+        /// Show backup config covering the path.
+        #[arg(short, long)]
+        backup: bool,
+    },
+
     /// Print config dir.
     Path {},
 

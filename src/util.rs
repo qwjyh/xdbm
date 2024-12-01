@@ -1,6 +1,7 @@
 use std::path::{self, PathBuf};
 
 use anyhow::{Context, Result};
+use chrono::TimeDelta;
 use console::Style;
 
 use crate::{
@@ -18,12 +19,12 @@ pub fn min_parent_storage<'a>(
         .list
         .iter()
         .filter_map(|(k, storage)| {
-            let storage_path = match storage.mount_path(device) {
-                Ok(path) => path,
-                Err(_) => return None,
-            };
+            let storage_path = storage.mount_path(device)?;
             let diff = pathdiff::diff_paths(path, storage_path)?;
-            if diff.components().any(|c| c == path::Component::ParentDir) {
+            if diff
+                .components()
+                .any(|c| matches!(c, path::Component::ParentDir | path::Component::Prefix(_)))
+            {
                 None
             } else {
                 Some((k, diff))
@@ -59,6 +60,17 @@ pub fn format_summarized_duration(dt: chrono::Duration) -> String {
         format!("{}h", dt.num_hours())
     } else {
         format!("{}min", dt.num_minutes())
+    }
+}
+
+pub fn duration_style(time: TimeDelta) -> Style {
+    match time {
+        x if x < TimeDelta::days(7) => Style::new().green(),
+        x if x < TimeDelta::days(14) => Style::new().yellow(),
+        x if x < TimeDelta::days(28) => Style::new().magenta(),
+        x if x < TimeDelta::days(28 * 3) => Style::new().red(),
+        x if x < TimeDelta::days(180) => Style::new().red().bold(),
+        _ => Style::new().on_red().black(),
     }
 }
 

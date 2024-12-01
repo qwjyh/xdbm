@@ -145,7 +145,7 @@ mod integrated_test {
 
         // bare-repo
         let bare_repo_dir = assert_fs::TempDir::new()?;
-        let bare_repo = Repository::init_bare(&bare_repo_dir)?;
+        let _bare_repo = Repository::init_bare(&bare_repo_dir)?;
         // push to bare repository
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
@@ -216,6 +216,8 @@ mod integrated_test {
     #[test]
     fn two_devices() -> Result<()> {
         // 1st device
+        //
+        // devices: first
         let config_dir_1 = assert_fs::TempDir::new()?;
         setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
@@ -227,7 +229,7 @@ mod integrated_test {
 
         // bare-repo
         let bare_repo_dir = assert_fs::TempDir::new()?;
-        let bare_repo = Repository::init_bare(&bare_repo_dir)?;
+        let _bare_repo = Repository::init_bare(&bare_repo_dir)?;
         // push to bare repository
         let repo_1 = Repository::open(&config_dir_1)?;
         let upstream_name = "remote";
@@ -248,6 +250,8 @@ mod integrated_test {
         ))?;
 
         // 2nd device
+        //
+        // devices: first, second
         let config_dir_2 = assert_fs::TempDir::new()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
@@ -271,6 +275,7 @@ mod integrated_test {
         assert!(config_dir_2.join("backups").join("first.yml").exists());
         assert!(config_dir_2.join("backups").join("second.yml").exists());
 
+        // sync
         std::process::Command::new("git")
             .arg("push")
             .current_dir(&config_dir_2)
@@ -287,6 +292,11 @@ mod integrated_test {
             .success();
 
         // Add storage
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive @ sample_storage (online)
+        //      - first: sample_storage
         let sample_storage = assert_fs::TempDir::new()?;
         let mut cmd_add_storage_1 = Command::cargo_bin("xdbm")?;
         cmd_add_storage_1
@@ -308,6 +318,13 @@ mod integrated_test {
             .success()
             .stdout(predicate::str::contains(""));
         // Add storage (directory)
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
         let sample_directory = &sample_storage.join("foo").join("bar");
         DirBuilder::new().recursive(true).create(sample_directory)?;
         Command::cargo_bin("xdbm")?
@@ -339,6 +356,14 @@ mod integrated_test {
             .success();
 
         // bind
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
         Command::cargo_bin("xdbm")?
             .arg("-c")
             .arg(config_dir_2.path())
@@ -354,6 +379,16 @@ mod integrated_test {
             .stdout(predicate::str::contains(""));
 
         // storage 3
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - second: sample_storage_2
         let sample_storage_2 = assert_fs::TempDir::new()?;
         Command::cargo_bin("xdbm")?
             .arg("-c")
@@ -384,6 +419,19 @@ mod integrated_test {
             .stdout(predicate::str::contains("gdrive_docs").and(predicate::str::contains("nas")));
 
         // backup add
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs
         let backup_src = &sample_storage_2.join("foo").join("bar");
         DirBuilder::new().recursive(true).create(backup_src)?;
         let backup_dest = &sample_directory.join("docs");
@@ -438,6 +486,19 @@ mod integrated_test {
             );
 
         // backup done
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs (done 1)
         Command::cargo_bin("xdbm")?
             .arg("-c")
             .arg(config_dir_2.path())
@@ -447,6 +508,274 @@ mod integrated_test {
             .arg("0")
             .assert()
             .success();
+
+        // backup list after backup done
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("backup")
+            .arg("list")
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("foodoc")
+                    .and(predicate::str::contains("nas"))
+                    .and(predicate::str::contains("gdrive_docs"))
+                    .and(predicate::str::contains("---").not()),
+            );
+
+        // status
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .assert()
+            .success();
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-s")
+            .arg(backup_src.clone().join("foo"))
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("nas").and(predicate::str::contains("foodoc").not()));
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src.clone().join("foo"))
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("foodoc")),
+            );
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src.clone().parent().unwrap())
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("second").not())
+                    .and(predicate::str::contains("foodoc").not()),
+            );
+
+        std::process::Command::new("git")
+            .arg("push")
+            .current_dir(&config_dir_2)
+            .assert()
+            .success();
+        std::process::Command::new("git")
+            .arg("pull")
+            .current_dir(&config_dir_1)
+            .assert()
+            .success();
+
+        // bind
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - first: sample_storage_2_first_path
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs (done 1)
+        let sample_storage_2_first_path = assert_fs::TempDir::new()?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_1.path())
+            .arg("storage")
+            .arg("bind")
+            .arg("--alias")
+            .arg("sample2")
+            .arg("--path")
+            .arg(sample_storage_2_first_path.path())
+            .arg("nas")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(""));
+
+        // backup add
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - first: sample_storage_2_first_path
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs (done 1)
+        //  - abcdbackup: first
+        //      - sample_storage_2_first_path/abcd/efgh -> sample_storage/Downloads/abcd/efgh
+        let backup_src = &sample_storage_2_first_path.join("abcd").join("efgh");
+        DirBuilder::new().recursive(true).create(backup_src)?;
+        let backup_dest = &sample_storage.join("Downloads").join("abcd").join("efgh");
+        DirBuilder::new().recursive(true).create(backup_dest)?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_1.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(backup_src)
+            .arg("--dest")
+            .arg(backup_dest)
+            .arg("abcdbackup")
+            .arg("external")
+            .arg("rsync")
+            .arg("note: nonsense")
+            .assert()
+            .success();
+
+        // backup add
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - first: sample_storage_2_first_path
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs (done 1)
+        //  - abcdbackup: first
+        //      - sample_storage_2_first_path/abcd/efgh -> sample_storage/Downloads/abcd/efgh
+        //  - abcdsubbackup: first
+        //      - sample_storage_2_first_path/abcd/efgh/sub -> sample_storage/Downloads/abcd/efgh/sub
+        let backup_src = &sample_storage_2_first_path
+            .join("abcd")
+            .join("efgh")
+            .join("sub");
+        DirBuilder::new().recursive(true).create(backup_src)?;
+        let backup_dest = &sample_storage
+            .join("Downloads")
+            .join("abcd")
+            .join("efgh")
+            .join("sub");
+        DirBuilder::new().recursive(true).create(backup_dest)?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_1.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(backup_src)
+            .arg("--dest")
+            .arg(backup_dest)
+            .arg("abcdsubbackup")
+            .arg("external")
+            .arg("rsync")
+            .arg("note: only subdirectory")
+            .assert()
+            .success();
+
+        std::process::Command::new("git")
+            .arg("push")
+            .current_dir(&config_dir_1)
+            .assert()
+            .success();
+        std::process::Command::new("git")
+            .arg("pull")
+            .current_dir(&config_dir_2)
+            .assert()
+            .success();
+
+        // backup add
+        //
+        // devices: first, second
+        // storages:
+        //  - gdrive (online)
+        //      - first: sample_storage
+        //  - gdrive_docs (subdir of sample_storage/foo/bar)
+        //      - first
+        //      - second: sample_directory
+        //  - nas (online)
+        //      - first: sample_storage_2_first_path
+        //      - second: sample_storage_2
+        //  backups:
+        //  - foodoc: second
+        //      - sample_storage_2/foo/bar -> sample_directory/docs (done 1)
+        //  - abcdbackup: first
+        //      - sample_storage_2_first_path/abcd/efgh -> sample_storage/Downloads/abcd/efgh
+        //  - abcdsubbackup: first
+        //      - sample_storage_2_first_path/abcd/efgh/sub -> sample_storage/Downloads/abcd/efgh/sub
+        //  - abcdbackup2: second
+        //      - sample_storage_2/abcd/efgh -> sample_directory/Downloads/abcd/efgh
+        let backup_src = &sample_storage_2.join("abcd").join("efgh");
+        DirBuilder::new().recursive(true).create(backup_src)?;
+        let backup_dest = &sample_directory.join("Downloads").join("abcd").join("efgh");
+        DirBuilder::new().recursive(true).create(backup_dest)?;
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("backup")
+            .arg("add")
+            .arg("--src")
+            .arg(backup_src)
+            .arg("--dest")
+            .arg(backup_dest)
+            .arg("abcdbackup2")
+            .arg("external")
+            .arg("rsync")
+            .arg("note: only subdirectory")
+            .assert()
+            .success();
+
+        // status
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src)
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("first"))
+                    .and(predicate::str::contains("abcdbackup"))
+                    .and(predicate::str::contains("abcdsubbackup").not())
+                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("abcdbackup2")),
+            );
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("status")
+            .arg("-sb")
+            .arg(backup_src.join("sub"))
+            .assert()
+            .success()
+            .stdout(
+                predicate::str::contains("nas")
+                    .and(predicate::str::contains("first"))
+                    .and(predicate::str::contains("abcdbackup"))
+                    .and(predicate::str::contains("abcdsubbackup"))
+                    .and(predicate::str::contains("second"))
+                    .and(predicate::str::contains("abcdbackup2")),
+            );
 
         Ok(())
     }

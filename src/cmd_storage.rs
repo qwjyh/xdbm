@@ -215,8 +215,8 @@ fn write_storages_list(
             ""
         };
         let path = storage.mount_path(device).map_or_else(
-            |e| {
-                info!("Not found: {}", e);
+            || {
+                info!("Mount path not found");
                 "".to_string()
             },
             |v| v.display().to_string(),

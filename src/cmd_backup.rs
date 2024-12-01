@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Ok, Result};
-use chrono::{Local, TimeDelta};
+use chrono::Local;
 use console::Style;
 use dunce::canonicalize;
 use git2::Repository;
@@ -89,8 +89,8 @@ fn new_backup(
     Ok(Backup::new(
         name,
         device.name(),
-        src_target,
-        dest_target,
+        src_target?,
+        dest_target?,
         command,
     ))
 }
@@ -154,17 +154,6 @@ pub fn cmd_backup_list(
     Ok(())
 }
 
-fn duration_style(time: TimeDelta) -> Style {
-    match time {
-        x if x < TimeDelta::days(7) => Style::new().green(),
-        x if x < TimeDelta::days(14) => Style::new().yellow(),
-        x if x < TimeDelta::days(28) => Style::new().magenta(),
-        x if x < TimeDelta::days(28 * 3) => Style::new().red(),
-        x if x < TimeDelta::days(180) => Style::new().red().bold(),
-        _ => Style::new().on_red().black(),
-    }
-}
-
 /// TODO: status printing
 fn write_backups_list(
     mut writer: impl io::Write,
@@ -188,10 +177,16 @@ fn write_backups_list(
         ))?;
         name_width = name_width.max(backup.name().width());
         dev_width = dev_width.max(dev.width());
-        let src = backup.source().path(storages, device)?;
+        let src = backup
+            .source()
+            .path(storages, device)
+            .context("Couldn't get path for source")?;
         src_width = src_width.max(format!("{}", src.display()).width());
         src_storage_width = src_storage_width.max(backup.source().storage.width());
-        let dest = backup.destination().path(storages, device)?;
+        let dest = backup
+            .destination()
+            .path(storages, device)
+            .context("Couldn't get path for destination")?;
         dest_width = dest_width.max(format!("{}", dest.display()).width());
         dest_storage_width = dest_storage_width.max(backup.destination().storage.width());
         let cmd_name = backup.command().name();
@@ -203,14 +198,20 @@ fn write_backups_list(
             "Couldn't find the device specified in the backup config: {}",
             backup.name()
         ))?;
-        let src = backup.source().path(storages, device)?;
-        let dest = backup.destination().path(storages, device)?;
+        let src = backup
+            .source()
+            .path(storages, device)
+            .context("Couldn't get path for source")?;
+        let dest = backup
+            .destination()
+            .path(storages, device)
+            .context("Couldn't get path for destination")?;
         let cmd_name = backup.command().name();
         let (last_backup_elapsed, style_on_time_elapsed) = match backup.last_backup() {
             Some(log) => {
                 let time = Local::now() - log.datetime;
                 let s = util::format_summarized_duration(time);
-                let style = duration_style(time);
+                let style = util::duration_style(time);
                 (style.apply_to(s), style)
             }
             None => {
@@ -360,9 +361,9 @@ mod test {
             &storages,
         )?;
         assert!(backup.source().storage == "online");
-        assert_eq!(backup.source().path, PathBuf::from("docs"));
+        assert_eq!(backup.source().path, vec!["docs"]);
         assert!(backup.destination().storage == "online");
-        assert!(backup.destination().path == PathBuf::from("tmp"));
+        assert!(backup.destination().path == vec!["tmp"]);
         Ok(())
     }
 }

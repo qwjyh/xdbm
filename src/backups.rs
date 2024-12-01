@@ -27,32 +27,38 @@ pub fn backups_file(device: &Device) -> PathBuf {
 }
 
 /// Targets for backup source or destination.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupTarget {
     /// `name()` of [`crate::storages::Storage`].
     /// Use `String` for serialization/deserialization.
     pub storage: String,
     /// Relative path to the `storage`.
-    pub path: PathBuf,
+    pub path: Vec<String>,
 }
 
 impl BackupTarget {
-    pub fn new(storage_name: String, relative_path: PathBuf) -> Self {
-        BackupTarget {
+    pub fn new(storage_name: String, relative_path: PathBuf) -> Result<Self> {
+        let relative_path = relative_path
+            .components()
+            .map(|c| c.as_os_str().to_str().map(|s| s.to_owned()))
+            .collect::<Option<_>>()
+            .context("Path contains non-utf8 character")?;
+        Ok(BackupTarget {
             storage: storage_name,
             path: relative_path,
-        }
+        })
     }
 
-    pub fn path(&self, storages: &Storages, device: &Device) -> Result<PathBuf> {
+    /// Get full path of the [`BackupTarget`].
+    pub fn path(&self, storages: &Storages, device: &Device) -> Option<PathBuf> {
         let parent = storages.get(&self.storage).unwrap();
         let parent_path = parent.mount_path(device)?;
-        Ok(parent_path.join(self.path.clone()))
+        Some(parent_path.join(self.path.clone().iter().collect::<PathBuf>()))
     }
 }
 
 /// Type of backup commands.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BackupCommand {
     ExternallyInvoked(ExternallyInvoked),
 }
@@ -79,7 +85,7 @@ impl BackupCommandExt for BackupCommand {
 
 /// Backup commands which is not invoked from xdbm itself.
 /// Call xdbm externally to record backup datetime and status.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternallyInvoked {
     name: String,
     pub note: String,
@@ -102,7 +108,7 @@ impl BackupCommandExt for ExternallyInvoked {
 }
 
 /// Backup execution log.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupLog {
     pub datetime: DateTime<Local>,
     status: BackupResult,
@@ -122,7 +128,7 @@ impl BackupLog {
 }
 
 /// Result of backup.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BackupResult {
     Success,
     Failure,
@@ -139,7 +145,7 @@ impl BackupResult {
 }
 
 /// Backup source, destination, command and logs.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backup {
     /// must be unique
     name: String,
@@ -174,7 +180,7 @@ impl Backup {
         &self.name
     }
 
-    pub fn device<'a>(&'a self, devices: &'a [Device]) -> Option<&Device> {
+    pub fn device<'a>(&'a self, devices: &'a [Device]) -> Option<&'a Device> {
         devices.iter().find(|dev| dev.name() == self.device)
     }
 
@@ -200,7 +206,7 @@ impl Backup {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backups {
     pub list: BTreeMap<String, Backup>,
 }

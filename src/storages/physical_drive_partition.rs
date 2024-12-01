@@ -21,6 +21,7 @@ pub struct PhysicalDrivePartition {
     fs: String,
     is_removable: bool,
     // system_names: BTreeMap<String, String>,
+    /// [`Device`] name and [`LocalInfo`] mapping.
     local_infos: BTreeMap<String, LocalInfo>,
 }
 
@@ -112,12 +113,10 @@ impl StorageExt for PhysicalDrivePartition {
         self.local_infos.get(&device.name())
     }
 
-    fn mount_path(&self, device: &devices::Device) -> Result<path::PathBuf> {
-        Ok(self
-            .local_infos
+    fn mount_path(&self, device: &devices::Device) -> Option<path::PathBuf> {
+        self.local_infos
             .get(&device.name())
-            .context(format!("LocalInfo for storage: {} not found", &self.name()))?
-            .mount_path())
+            .map(|info| info.mount_path())
     }
 
     fn bound_on_device(
