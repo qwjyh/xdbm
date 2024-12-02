@@ -7,7 +7,7 @@ use crate::storages::{
 };
 use anyhow::{anyhow, Context, Result};
 use clap::ValueEnum;
-use console::{style, Style, StyledObject};
+use console::Style;
 use core::panic;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, fs, io, path};
@@ -156,7 +156,7 @@ pub trait StorageExt {
     ) -> Result<()>;
 
     /// Get parent
-    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&Storage>;
+    fn parent<'a>(&'a self, storages: &'a Storages) -> Option<&'a Storage>;
 }
 
 pub mod directory;

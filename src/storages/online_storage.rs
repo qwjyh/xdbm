@@ -1,6 +1,6 @@
 //! Online storage which is not a children of any physical drive.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use byte_unit::Byte;
 use byte_unit::UnitType;
 use serde::{Deserialize, Serialize};
