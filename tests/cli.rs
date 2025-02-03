@@ -45,35 +45,15 @@ mod integrated_test {
     fn git_init() -> Result<()> {
         let temp_dir = assert_fs::TempDir::new()?;
         setup_gitconfig(temp_dir.path())?;
-        let p = std::process::Command::new("git")
-            .args(["init"])
-            .current_dir(temp_dir.path())
+        let repo = git2::Repository::init(temp_dir.path())?;
+        eprintln!("{:?}", repo.path());
+        let git_status = std::process::Command::new("git")
+            .args(["status"])
             .spawn()
-            .context("git spawn")?
+            .context("git status")?
             .wait()
-            .context("running git failed")?
-            .to_string();
-        eprintln!("git init\n{}", p);
-
-        let p = std::process::Command::new("git")
-            .args(["config", "--list"])
-            .current_dir(temp_dir.path())
-            .spawn()
-            .context("git spawn")?
-            .wait()
-            .context("running git failed")?
-            .to_string();
-        eprintln!("git config\n{}", p);
-
-        let p = std::process::Command::new("git")
-            .args(["config", "--list", "--local"])
-            .current_dir(temp_dir.path())
-            .spawn()
-            .context("git spawn")?
-            .wait()
-            .context("running git failed")?
-            .to_string();
-        eprintln!("git config --local\n{}", p);
+            .context("didn't complete")?;
+        eprintln!("{}", git_status);
         Ok(())
     }
 
