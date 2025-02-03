@@ -158,7 +158,19 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
     let tree = repo.find_tree(oid)?;
     let config = {
         let mut config = git2::Config::open_default()?;
+        if log::log_enabled!(log::Level::Trace) {
+            trace!("before reading local config");
+            config
+                .entries(None)?
+                .for_each(|entry| trace!("{:?} = {:?}", entry.name(), entry.value()))?;
+        }
         config.add_file(&path.join(".git/config"), git2::ConfigLevel::Local, false)?;
+        if log::log_enabled!(log::Level::Trace) {
+            trace!("after reading local config");
+            config
+                .entries(None)?
+                .for_each(|entry| trace!("{:?} = {:?}", entry.name(), entry.value()))?;
+        }
         config
     };
     let signature = git2::Signature::now(
