@@ -83,7 +83,8 @@ mod integrated_test {
         cmd.arg("-c")
             .arg(config_dir.path())
             .arg("init")
-            .arg("testdev");
+            .arg("testdev")
+            .arg("-vvvv");
         cmd.assert().success().stdout(predicate::str::contains(""));
         eprintln!("{:?}", fs::read_dir(config_dir.path())?.collect::<Vec<_>>());
         assert_eq!(
