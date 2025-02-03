@@ -43,32 +43,37 @@ mod integrated_test {
 
     #[test]
     fn git_init() -> Result<()> {
+        let temp_dir = assert_fs::TempDir::new()?;
+        setup_gitconfig(temp_dir.path())?;
         let p = std::process::Command::new("git")
             .args(["init"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git spawn")?
             .wait()
             .context("running git failed")?
             .to_string();
-        eprintln!("{}", p);
+        eprintln!("git init\n{}", p);
 
         let p = std::process::Command::new("git")
             .args(["config", "--list"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git spawn")?
             .wait()
             .context("running git failed")?
             .to_string();
-        eprintln!("{}", p);
+        eprintln!("git config\n{}", p);
 
         let p = std::process::Command::new("git")
             .args(["config", "--list", "--local"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git spawn")?
             .wait()
             .context("running git failed")?
             .to_string();
-        eprintln!("{}", p);
+        eprintln!("git config --local\n{}", p);
         Ok(())
     }
 
