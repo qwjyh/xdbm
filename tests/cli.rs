@@ -35,6 +35,9 @@ mod integrated_test {
             .as_bytes(),
         )?;
 
+        eprintln!("{:?}", fs::read_dir(path)?.collect::<Vec<_>>());
+        eprintln!("{:?}", fs::read_dir(git_dir)?.collect::<Vec<_>>());
+
         Ok(())
     }
 
