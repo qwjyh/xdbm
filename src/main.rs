@@ -156,7 +156,11 @@ fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> Result<Oid, 
     index.write()?;
     let oid = index.write_tree()?;
     let tree = repo.find_tree(oid)?;
-    let config = git2::Config::open_default()?;
+    let config = {
+        let mut config = git2::Config::open_default()?;
+        config.add_file(&path.join(".git/config"), git2::ConfigLevel::Local, false)?;
+        config
+    };
     let signature = git2::Signature::now(
         config.get_entry("user.name")?.value().unwrap(),
         config.get_entry("user.email")?.value().unwrap(),
