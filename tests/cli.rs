@@ -43,7 +43,8 @@ mod integrated_test {
 
     #[test]
     fn git_init() -> Result<()> {
-        let p = std::process::Command::new("git init")
+        let p = std::process::Command::new("git")
+            .args(["init"])
             .spawn()
             .context("git spawn")?
             .wait()
@@ -51,7 +52,8 @@ mod integrated_test {
             .to_string();
         eprintln!("{}", p);
 
-        let p = std::process::Command::new("git config --list")
+        let p = std::process::Command::new("git")
+            .args(["config", "--list"])
             .spawn()
             .context("git spawn")?
             .wait()
@@ -59,7 +61,8 @@ mod integrated_test {
             .to_string();
         eprintln!("{}", p);
 
-        let p = std::process::Command::new("git config --list --local")
+        let p = std::process::Command::new("git")
+            .args(["config", "--list", "--local"])
             .spawn()
             .context("git spawn")?
             .wait()
