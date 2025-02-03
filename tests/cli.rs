@@ -54,7 +54,21 @@ mod integrated_test {
             .wait()
             .context("didn't complete")?;
         eprintln!("{}", git_status);
-        Ok(())
+        let git_config = std::process::Command::new("git")
+            .args(["config", "--list"])
+            .spawn()
+            .context("git status")?
+            .wait()
+            .context("didn't complete")?;
+        eprintln!("{}", git_config);
+        let git_config = std::process::Command::new("git")
+            .args(["config", "--list", "--local"])
+            .spawn()
+            .context("git status")?
+            .wait()
+            .context("didn't complete")?;
+        eprintln!("{}", git_config);
+        Err(anyhow::anyhow!("finished (error for debug)"))
     }
 
     #[test]
