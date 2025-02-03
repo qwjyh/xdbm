@@ -49,6 +49,7 @@ mod integrated_test {
         eprintln!("{:?}", repo.path());
         let git_status = std::process::Command::new("git")
             .args(["status"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git status")?
             .wait()
@@ -56,6 +57,7 @@ mod integrated_test {
         eprintln!("{}", git_status);
         let git_config = std::process::Command::new("git")
             .args(["config", "--list"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git status")?
             .wait()
@@ -63,6 +65,7 @@ mod integrated_test {
         eprintln!("{}", git_config);
         let git_config = std::process::Command::new("git")
             .args(["config", "--list", "--local"])
+            .current_dir(temp_dir.path())
             .spawn()
             .context("git status")?
             .wait()
