@@ -42,8 +42,24 @@ mod integrated_test {
     }
 
     #[test]
-    fn git_config() -> Result<()> {
-        let p = std::process::Command::new("git")
+    fn git_init() -> Result<()> {
+        let p = std::process::Command::new("git init")
+            .spawn()
+            .context("git spawn")?
+            .wait()
+            .context("running git failed")?
+            .to_string();
+        eprintln!("{}", p);
+
+        let p = std::process::Command::new("git config --list")
+            .spawn()
+            .context("git spawn")?
+            .wait()
+            .context("running git failed")?
+            .to_string();
+        eprintln!("{}", p);
+
+        let p = std::process::Command::new("git config --list --local")
             .spawn()
             .context("git spawn")?
             .wait()
