@@ -42,6 +42,18 @@ mod integrated_test {
     }
 
     #[test]
+    fn git_config() -> Result<()> {
+        let p = std::process::Command::new("git")
+            .spawn()
+            .context("git spawn")?
+            .wait()
+            .context("running git failed")?
+            .to_string();
+        eprintln!("{}", p);
+        Ok(())
+    }
+
+    #[test]
     fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
         setup_gitconfig(&config_dir)?;
@@ -52,6 +64,7 @@ mod integrated_test {
             .arg("init")
             .arg("testdev");
         cmd.assert().success().stdout(predicate::str::contains(""));
+        eprintln!("{:?}", fs::read_dir(config_dir.path())?.collect::<Vec<_>>());
         assert_eq!(
             std::fs::read_to_string(config_dir.path().join("devname"))?,
             "testdev\n"
