@@ -257,6 +257,7 @@ mod integrated_test {
         //
         // devices: first, second
         let config_dir_2 = assert_fs::TempDir::new()?;
+        setup_gitconfig(&config_dir_2)?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
