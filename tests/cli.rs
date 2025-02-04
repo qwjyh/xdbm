@@ -2,10 +2,9 @@ mod integrated_test {
     use std::{
         fs::{self, DirBuilder, File},
         io::{self, BufWriter, Write},
-        ops::Not,
     };
 
-    use anyhow::{Context, Ok, Result};
+    use anyhow::{Ok, Result};
     use assert_cmd::{assert::OutputAssertExt, Command};
     use git2::Repository;
     use log::trace;
@@ -39,39 +38,6 @@ mod integrated_test {
         eprintln!("{:?}", fs::read_dir(git_dir)?.collect::<Vec<_>>());
 
         Ok(())
-    }
-
-    #[test]
-    fn git_init() -> Result<()> {
-        let temp_dir = assert_fs::TempDir::new()?;
-        setup_gitconfig(temp_dir.path())?;
-        let repo = git2::Repository::init(temp_dir.path())?;
-        eprintln!("{:?}", repo.path());
-        let git_status = std::process::Command::new("git")
-            .args(["status"])
-            .current_dir(temp_dir.path())
-            .spawn()
-            .context("git status")?
-            .wait()
-            .context("didn't complete")?;
-        eprintln!("{}", git_status);
-        let git_config = std::process::Command::new("git")
-            .args(["config", "--list"])
-            .current_dir(temp_dir.path())
-            .spawn()
-            .context("git status")?
-            .wait()
-            .context("didn't complete")?;
-        eprintln!("{}", git_config);
-        let git_config = std::process::Command::new("git")
-            .args(["config", "--list", "--local"])
-            .current_dir(temp_dir.path())
-            .spawn()
-            .context("git status")?
-            .wait()
-            .context("didn't complete")?;
-        eprintln!("{}", git_config);
-        Err(anyhow::anyhow!("finished (error for debug)"))
     }
 
     #[test]
