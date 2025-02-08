@@ -16,8 +16,9 @@ mod integrated_test {
     ///
     /// # Errors
     ///
-    /// This function will return an error if it failed to get home directory.
-    fn setup_gitconfig(path: &std::path::Path) -> Result<()> {
+    /// This function will return an error if it failed to get git global config and environment
+    /// variable [XDBM_ENABLE_OVERWRITE_GITCONFIG](`IS_GIT_CONFIG_WRITABLE`) is not set.
+    fn setup_gitconfig() -> Result<()> {
         let config = git2::Config::open_default().expect("failed to get default");
         if config.get_string("user.name").is_ok() && config.get_string("user.email").is_ok() {
             return Ok(());
@@ -74,7 +75,7 @@ mod integrated_test {
     #[test]
     fn single_device() -> Result<()> {
         let config_dir = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir)?;
+        setup_gitconfig()?;
         // init
         let mut cmd = Command::cargo_bin("xdbm")?;
         cmd.arg("-c")
@@ -170,7 +171,7 @@ mod integrated_test {
     fn two_devices_with_same_name() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -203,7 +204,7 @@ mod integrated_test {
 
         // 2nd device
         let config_dir_2 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_2)?;
+        setup_gitconfig()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
@@ -219,7 +220,7 @@ mod integrated_test {
     fn directory_without_parent() -> Result<()> {
         // 1st device
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -254,7 +255,7 @@ mod integrated_test {
         //
         // devices: first
         let config_dir_1 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_1)?;
+        setup_gitconfig()?;
         let mut cmd1 = Command::cargo_bin("xdbm")?;
         cmd1.arg("-c")
             .arg(config_dir_1.path())
@@ -288,7 +289,7 @@ mod integrated_test {
         //
         // devices: first, second
         let config_dir_2 = assert_fs::TempDir::new()?;
-        setup_gitconfig(&config_dir_2)?;
+        setup_gitconfig()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())
