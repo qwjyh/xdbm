@@ -1,27 +1,61 @@
 mod integrated_test {
     use std::{
-        fs::{DirBuilder, File},
+        fs::{self, DirBuilder, File},
         io::{self, BufWriter, Write},
     };
 
-    use anyhow::{Context, Ok, Result};
+    use anyhow::{anyhow, Context, Ok, Result};
     use assert_cmd::{assert::OutputAssertExt, Command};
-    use dirs::home_dir;
     use git2::Repository;
-    use log::trace;
+    use log::{debug, trace};
     use predicates::{boolean::PredicateBooleanExt, prelude::predicate};
+
+    const IS_GIT_CONFIG_WRITABLE: &str = "XDBM_ENABLE_OVERWRITE_GITCONFIG";
 
     /// Setup global gitconfig if it doesn't exist.
     ///
     /// # Errors
     ///
-    /// This function will return an error if it failed to get home directory.
+    /// This function will return an error if it failed to get git global config and environment
+    /// variable [XDBM_ENABLE_OVERWRITE_GITCONFIG](`IS_GIT_CONFIG_WRITABLE`) is not set.
     fn setup_gitconfig() -> Result<()> {
-        let f = match File::create_new(
-            home_dir()
-                .context("Failed to find home directory")?
-                .join(".gitconfig"),
-        ) {
+        let config = git2::Config::open_default().expect("failed to get default");
+        if config.get_string("user.name").is_ok() && config.get_string("user.email").is_ok() {
+            return Ok(());
+        };
+
+        match std::env::var_os(IS_GIT_CONFIG_WRITABLE) {
+            Some(_) => {
+                debug!(
+                    "global git config not found & env var `{}` found",
+                    IS_GIT_CONFIG_WRITABLE
+                );
+            }
+            None => {
+                eprintln!("Failed to get git global config");
+                eprintln!(
+                    "Set env var `{}` to set automatically (mainly for CI)",
+                    IS_GIT_CONFIG_WRITABLE
+                );
+                return Err(anyhow!("failed to get git global config"));
+            }
+        };
+
+        let config_file = git2::Config::find_global().map_or_else(
+            |e| {
+                trace!("global git config file not found: {e:?}");
+                Ok(dirs::home_dir()
+                    .context("Failed to get home dir")?
+                    .join(".gitconfig"))
+            },
+            Ok,
+        )?;
+        let f = match File::options()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(config_file)
+        {
             io::Result::Ok(f) => f,
             io::Result::Err(_err) => return Ok(()),
         };
@@ -47,8 +81,10 @@ mod integrated_test {
         cmd.arg("-c")
             .arg(config_dir.path())
             .arg("init")
-            .arg("testdev");
+            .arg("testdev")
+            .arg("-vvvv");
         cmd.assert().success().stdout(predicate::str::contains(""));
+        eprintln!("{:?}", fs::read_dir(config_dir.path())?.collect::<Vec<_>>());
         assert_eq!(
             std::fs::read_to_string(config_dir.path().join("devname"))?,
             "testdev\n"
@@ -253,6 +289,7 @@ mod integrated_test {
         //
         // devices: first, second
         let config_dir_2 = assert_fs::TempDir::new()?;
+        setup_gitconfig()?;
         let mut cmd2 = Command::cargo_bin("xdbm")?;
         cmd2.arg("-c")
             .arg(config_dir_2.path())

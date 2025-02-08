@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Git local config is now looked up. (#20)
+- Git global config will not be polluted in test by default. (#20)
+
 ## [0.3.0] - 2024-12-02
 
 ### Added
