@@ -16,6 +16,13 @@ mod integrated_test {
     ///
     /// This function will return an error if it failed to get home directory.
     fn setup_gitconfig(path: &std::path::Path) -> Result<()> {
+        eprintln!("{:?}", git2::Config::find_global());
+        eprintln!(
+            "{:?}",
+            git2::Config::open_default()
+                .expect("failed to get default")
+                .get_string("user.name")
+        );
         let git_dir = path.join(".git");
         if !git_dir.exists() {
             fs::DirBuilder::new().create(git_dir.clone())?
