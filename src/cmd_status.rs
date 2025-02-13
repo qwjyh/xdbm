@@ -21,6 +21,8 @@ pub(crate) fn cmd_status(
     config_dir: &Path,
 ) -> Result<()> {
     let path = path.unwrap_or(env::current_dir().context("Failed to get current directory.")?);
+    let path = path::absolute(path).context("Failed to get absolute path")?;
+    debug!("target path: {path:?}");
     let current_device = devices::get_device(config_dir)?;
 
     if show_storage {
