@@ -40,9 +40,7 @@ fn clone_repo(
                 }
             };
             Cred::ssh_key(
-                username_from_url
-                    .context("No username found from the url")
-                    .unwrap(),
+                username_from_url.ok_or(git2::Error::from_str("No username found from the url"))?,
                 None,
                 key as &Path,
                 passwd.as_deref(),
@@ -51,9 +49,7 @@ fn clone_repo(
             // use ssh agent
             info!("Using ssh agent to access the repository");
             Cred::ssh_key_from_agent(
-                username_from_url
-                    .context("No username found from the url")
-                    .unwrap(),
+                username_from_url.ok_or(git2::Error::from_str("No username found from the url"))?,
             )
         } else {
             error!("no ssh_key and use_sshagent");

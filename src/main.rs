@@ -35,6 +35,7 @@ mod cmd_status;
 mod cmd_storage;
 mod cmd_sync;
 mod devices;
+mod git;
 mod inquire_filepath_completer;
 mod storages;
 mod util;
@@ -91,7 +92,11 @@ fn main() -> Result<()> {
         Commands::Path {} => {
             println!("{}", &config_dir.display());
         }
-        Commands::Sync { remote_name } => cmd_sync::cmd_sync(&config_dir, remote_name)?,
+        Commands::Sync {
+            remote_name,
+            use_sshagent,
+            ssh_key,
+        } => cmd_sync::cmd_sync(&config_dir, remote_name, use_sshagent, ssh_key)?,
         Commands::Status {
             path,
             storage,
