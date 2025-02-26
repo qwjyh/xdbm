@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `sync` subcommand, which performs git pull (fast-forward) and push (#21)
+
 ### Fixed
 - Git local config is now looked up. (#20)
 - Git global config will not be polluted in test by default. (#20)
@@ -10,7 +13,6 @@
 
 ### Added
 - Add `status` subcommand to see storage and backup on given path or current working directory ([#17](https://github.com/qwjyh/xdbm/pull/17)).
-- `sync` subcommand, which performs git pull (fast-forward) and push
 
 ### Changed
 - Colored output for `storage list` and `backup list` ([#15](https://github.com/qwjyh/xdbm/pull/15))
