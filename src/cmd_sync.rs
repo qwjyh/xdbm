@@ -27,7 +27,113 @@ pub(crate) fn cmd_sync(
     debug!("remote name: {remote_name}");
 
     let mut remote = repo.find_remote(&remote_name)?;
-    let callbacks = remote_callback(&use_sshagent, &ssh_key);
+
+    pull(
+        &repo,
+        &mut remote,
+        remote_name,
+        &use_sshagent,
+        ssh_key.as_ref(),
+    )?;
+
+    push(&repo, &mut remote, &use_sshagent, ssh_key.as_ref())?;
+    Ok(())
+}
+
+fn remote_callback<'b, 'a>(
+    use_sshagent: &'a bool,
+    ssh_key: Option<&'a PathBuf>,
+) -> RemoteCallbacks<'a>
+where
+    'b: 'a,
+{
+    // using credentials
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks
+        .credentials(move |_url, username_from_url, _allowed_types| {
+            if let Some(key) = ssh_key {
+                info!("Using provided ssh key to access the repository");
+                let passwd = match inquire::Password::new("SSH passphrase").prompt() {
+                    std::result::Result::Ok(s) => Some(s),
+                    Err(err) => {
+                        error!("Failed to get ssh passphrase: {:?}", err);
+                        None
+                    }
+                };
+                Cred::ssh_key(
+                    username_from_url
+                        .ok_or(git2::Error::from_str("No username found from the url"))?,
+                    None,
+                    key as &Path,
+                    passwd.as_deref(),
+                )
+            } else if *use_sshagent {
+                // use ssh agent
+                info!("Using ssh agent to access the repository");
+                Cred::ssh_key_from_agent(
+                    username_from_url
+                        .ok_or(git2::Error::from_str("No username found from the url"))?,
+                )
+            } else {
+                error!("no ssh_key and use_sshagent");
+                panic!("This option must be unreachable.")
+            }
+        })
+        .transfer_progress(|progress| {
+            if progress.received_objects() == progress.total_objects() {
+                print!(
+                    "Resolving deltas {}/{}\r",
+                    progress.indexed_deltas(),
+                    progress.total_deltas()
+                );
+            } else {
+                print!(
+                    "Received {}/{} objects ({}) in {} bytes\r",
+                    progress.received_objects(),
+                    progress.total_objects(),
+                    progress.indexed_objects(),
+                    progress.received_bytes(),
+                );
+            }
+            io::stdout().flush().unwrap();
+            true
+        })
+        .sideband_progress(|text| {
+            let msg = String::from_utf8_lossy(text);
+            eprintln!("remote: {msg}");
+            true
+        })
+        .push_transfer_progress(|current, total, bytes| {
+            trace!("{current}/{total} files sent \t{bytes} bytes");
+        })
+        .push_update_reference(|reference_name, status_msg| {
+            debug!("remote reference_name {reference_name}");
+            match status_msg {
+                None => {
+                    info!("successfully pushed");
+                    eprintln!("successfully pushed to {}", reference_name);
+                    Ok(())
+                }
+                Some(status) => {
+                    error!("failed to push: {}", status);
+                    Err(git2::Error::from_str(&format!(
+                        "failed to push to {}: {}",
+                        reference_name, status
+                    )))
+                }
+            }
+        });
+    callbacks
+}
+
+fn pull(
+    repo: &Repository,
+    remote: &mut git2::Remote,
+    remote_name: String,
+    use_sshagent: &bool,
+    ssh_key: Option<&PathBuf>,
+) -> Result<()> {
+    let callbacks = remote_callback(use_sshagent, ssh_key);
     let mut fetchoptions = FetchOptions::new();
     fetchoptions.remote_callbacks(callbacks);
     let fetch_refspec: Vec<String> = remote
@@ -121,9 +227,16 @@ pub(crate) fn cmd_sync(
             return Err(anyhow!("must not be reachabel (uncovered merge_analysis)"));
         }
     }
+    Ok(())
+}
 
-    // push
-    let callbacks = remote_callback(&use_sshagent, &ssh_key);
+fn push(
+    repo: &Repository,
+    remote: &mut git2::Remote,
+    use_sshagent: &bool,
+    ssh_key: Option<&PathBuf>,
+) -> Result<()> {
+    let callbacks = remote_callback(&use_sshagent, ssh_key);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
     trace!("remote: {:?}", remote.name());
@@ -158,90 +271,4 @@ pub(crate) fn cmd_sync(
         remote.push(&[push_refspec] as &[&str], Some(&mut push_options))?;
     };
     Ok(())
-}
-
-fn remote_callback<'b, 'a>(
-    use_sshagent: &'a bool,
-    ssh_key: &'b Option<PathBuf>,
-) -> RemoteCallbacks<'a>
-where
-    'b: 'a,
-{
-    // using credentials
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks
-        .credentials(move |_url, username_from_url, _allowed_types| {
-            if let Some(ref key) = ssh_key {
-                info!("Using provided ssh key to access the repository");
-                let passwd = match inquire::Password::new("SSH passphrase").prompt() {
-                    std::result::Result::Ok(s) => Some(s),
-                    Err(err) => {
-                        error!("Failed to get ssh passphrase: {:?}", err);
-                        None
-                    }
-                };
-                Cred::ssh_key(
-                    username_from_url
-                        .ok_or(git2::Error::from_str("No username found from the url"))?,
-                    None,
-                    key as &Path,
-                    passwd.as_deref(),
-                )
-            } else if *use_sshagent {
-                // use ssh agent
-                info!("Using ssh agent to access the repository");
-                Cred::ssh_key_from_agent(
-                    username_from_url
-                        .ok_or(git2::Error::from_str("No username found from the url"))?,
-                )
-            } else {
-                error!("no ssh_key and use_sshagent");
-                panic!("This option must be unreachable.")
-            }
-        })
-        .transfer_progress(|progress| {
-            if progress.received_objects() == progress.total_objects() {
-                print!(
-                    "Resolving deltas {}/{}\r",
-                    progress.indexed_deltas(),
-                    progress.total_deltas()
-                );
-            } else {
-                print!(
-                    "Received {}/{} objects ({}) in {} bytes\r",
-                    progress.received_objects(),
-                    progress.total_objects(),
-                    progress.indexed_objects(),
-                    progress.received_bytes(),
-                );
-            }
-            io::stdout().flush().unwrap();
-            true
-        })
-        .sideband_progress(|text| {
-            let msg = String::from_utf8_lossy(text);
-            eprintln!("remote: {msg}");
-            true
-        })
-        .push_transfer_progress(|current, total, bytes| {
-            trace!("{current}/{total} files sent \t{bytes} bytes");
-        })
-        .push_update_reference(|reference_name, status_msg| {
-            debug!("remote reference_name {reference_name}");
-            match status_msg {
-                None => {
-                    info!("successfully pushed");
-                    eprintln!("successfully pushed to {}", reference_name);
-                    Ok(())
-                }
-                Some(status) => {
-                    error!("failed to push: {}", status);
-                    Err(git2::Error::from_str(&format!(
-                        "failed to push to {}: {}",
-                        reference_name, status
-                    )))
-                }
-            }
-        });
-    callbacks
 }
