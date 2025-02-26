@@ -211,13 +211,13 @@ fn pull(
                 merge_analysis
             ));
         }
-        ma if ma.is_normal() => {
-            error!("unable to fast-forward. manual merge is required");
-            return Err(anyhow!("unable to fast-forward. manual merge is required"));
-        }
         ma if ma.is_none() => {
             error!("no merge is possible");
             return Err(anyhow!("no merge is possible"));
+        }
+        ma if ma.is_normal() => {
+            error!("unable to fast-forward. manual merge is required");
+            return Err(anyhow!("unable to fast-forward. manual merge is required"));
         }
         _ma => {
             error!(
