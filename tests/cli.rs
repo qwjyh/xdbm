@@ -2,6 +2,7 @@ mod integrated_test {
     use std::{
         fs::{self, DirBuilder, File},
         io::{self, BufWriter, Write},
+        path,
     };
 
     use anyhow::{anyhow, Context, Ok, Result};
@@ -69,6 +70,16 @@ mod integrated_test {
             .as_bytes(),
         )?;
 
+        Ok(())
+    }
+
+    fn run_sync_cmd(config_dir: &path::Path) -> Result<()> {
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir)
+            .args(["sync", "-vvvv"])
+            .assert()
+            .success();
         Ok(())
     }
 
@@ -313,15 +324,14 @@ mod integrated_test {
         assert!(config_dir_2.join("backups").join("second.yml").exists());
 
         // sync
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_2)
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir_2.path())
+            .arg("sync")
+            .arg("-vvvv")
             .assert()
-            .success();
-        // let repo_2 = Repository::open(config_dir_2)?;
-        // // return Err(anyhow!("{:?}", repo_2.remotes()?.iter().collect::<Vec<_>>()));
-        // let mut repo_2_remote = repo_2.find_remote(repo_2.remotes()?.get(0).unwrap())?;
-        // repo_2_remote.push(&[] as &[&str], None)?;
+            .success()
+            .stderr(predicate::str::contains("successfully pushed"));
         std::process::Command::new("git")
             .arg("pull")
             .current_dir(&config_dir_1)
@@ -381,16 +391,8 @@ mod integrated_test {
             std::fs::read_to_string(config_dir_1.join("storages.yml"))?.contains("parent: gdrive1")
         );
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_1)?;
+        run_sync_cmd(&config_dir_2)?;
 
         // bind
         //
@@ -604,16 +606,8 @@ mod integrated_test {
                     .and(predicate::str::contains("foodoc").not()),
             );
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_2)?;
+        run_sync_cmd(&config_dir_1)?;
 
         // bind
         //
@@ -728,16 +722,8 @@ mod integrated_test {
             .assert()
             .success();
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_1)?;
+        run_sync_cmd(&config_dir_2)?;
 
         // backup add
         //

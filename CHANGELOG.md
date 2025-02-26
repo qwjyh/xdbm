@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `sync` subcommand, which performs git pull (fast-forward) and push (#21)
+
 ### Fixed
 - Git local config is now looked up. (#20)
 - Git global config will not be polluted in test by default. (#20)

@@ -63,6 +63,12 @@ pub(crate) enum Commands {
     Sync {
         /// Remote name to sync.
         remote_name: Option<String>,
+        /// Whether to use ssh-agent
+        #[arg(long)]
+        use_sshagent: bool,
+        /// Manually specify ssh key
+        #[arg(long)]
+        ssh_key: Option<PathBuf>,
     },
 
     /// Check config files validity.
