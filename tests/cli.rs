@@ -2,6 +2,7 @@ mod integrated_test {
     use std::{
         fs::{self, DirBuilder, File},
         io::{self, BufWriter, Write},
+        path,
     };
 
     use anyhow::{anyhow, Context, Ok, Result};
@@ -69,6 +70,16 @@ mod integrated_test {
             .as_bytes(),
         )?;
 
+        Ok(())
+    }
+
+    fn run_sync_cmd(config_dir: &path::Path) -> Result<()> {
+        Command::cargo_bin("xdbm")?
+            .arg("-c")
+            .arg(config_dir)
+            .args(["sync", "-vvvv"])
+            .assert()
+            .success();
         Ok(())
     }
 
@@ -380,16 +391,8 @@ mod integrated_test {
             std::fs::read_to_string(config_dir_1.join("storages.yml"))?.contains("parent: gdrive1")
         );
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_1)?;
+        run_sync_cmd(&config_dir_2)?;
 
         // bind
         //
@@ -603,16 +606,8 @@ mod integrated_test {
                     .and(predicate::str::contains("foodoc").not()),
             );
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_2)?;
+        run_sync_cmd(&config_dir_1)?;
 
         // bind
         //
@@ -727,16 +722,8 @@ mod integrated_test {
             .assert()
             .success();
 
-        std::process::Command::new("git")
-            .arg("push")
-            .current_dir(&config_dir_1)
-            .assert()
-            .success();
-        std::process::Command::new("git")
-            .arg("pull")
-            .current_dir(&config_dir_2)
-            .assert()
-            .success();
+        run_sync_cmd(&config_dir_1)?;
+        run_sync_cmd(&config_dir_2)?;
 
         // backup add
         //
