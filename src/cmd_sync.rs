@@ -12,7 +12,7 @@ pub(crate) fn cmd_sync(
     use_sshagent: bool,
     ssh_key: Option<PathBuf>,
 ) -> Result<()> {
-    warn!("Experimental");
+    info!("cmd_sync");
     let repo = Repository::open(config_dir)?;
     let remote_name = match remote_name {
         Some(remote_name) => remote_name,
@@ -24,7 +24,7 @@ pub(crate) fn cmd_sync(
             remotes.get(0).unwrap().to_string()
         }
     };
-    debug!("remote name: {remote_name}");
+    debug!("resolved remote name: {remote_name}");
 
     let mut remote = repo.find_remote(&remote_name)?;
 
@@ -133,6 +133,7 @@ fn pull(
     use_sshagent: &bool,
     ssh_key: Option<&PathBuf>,
 ) -> Result<()> {
+    debug!("pull");
     let callbacks = remote_callback(use_sshagent, ssh_key);
     let mut fetchoptions = FetchOptions::new();
     fetchoptions.remote_callbacks(callbacks);
@@ -236,20 +237,20 @@ fn push(
     use_sshagent: &bool,
     ssh_key: Option<&PathBuf>,
 ) -> Result<()> {
+    debug!("push");
     let callbacks = remote_callback(&use_sshagent, ssh_key);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
-    trace!("remote: {:?}", remote.name());
-    let num_refspecs = remote
+    let num_push_refspecs = remote
         .refspecs()
         .filter(|rs| rs.direction() == git2::Direction::Push)
         .count();
-    if num_refspecs > 1 {
+    if num_push_refspecs > 1 {
         warn!("more than one push refspecs are configured");
         warn!("using the first one");
     }
     let head = repo.head().context("Failed to get HEAD")?;
-    if num_refspecs >= 1 {
+    if num_push_refspecs >= 1 {
         trace!("using push refspec");
         let push_refspec = remote
             .refspecs()
