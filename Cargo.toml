@@ -1,6 +1,6 @@
 [package]
 name = "xdbm"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["qwjyh <urataw421@gmail.com>"]
 edition = "2021"
 description = "Cross device backup manager, which manages backups on several storages mounted on multiple devices."
