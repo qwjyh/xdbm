@@ -4,6 +4,7 @@
 
 ### Added
 - `sync` subcommand, which performs git pull (fast-forward) and push (#21)
+- Feature `vendored-openssl` to statically link openssl and libgit2
 
 ### Fixed
 - Git local config is now looked up. (#20)
