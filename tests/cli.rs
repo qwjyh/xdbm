@@ -5,8 +5,8 @@ mod integrated_test {
         path,
     };
 
-    use anyhow::{anyhow, Context, Ok, Result};
-    use assert_cmd::{assert::OutputAssertExt, Command};
+    use anyhow::{Context, Ok, Result, anyhow};
+    use assert_cmd::{Command, assert::OutputAssertExt};
     use git2::Repository;
     use log::{debug, trace};
     use predicates::{boolean::PredicateBooleanExt, prelude::predicate};
@@ -73,13 +73,22 @@ mod integrated_test {
         Ok(())
     }
 
-    fn run_sync_cmd(config_dir: &path::Path) -> Result<()> {
-        Command::cargo_bin("xdbm")?
-            .arg("-c")
-            .arg(config_dir)
-            .args(["sync", "-vvvv"])
-            .assert()
-            .success();
+    fn run_sync_cmd(config_dir: &path::Path, use_cl: bool) -> Result<()> {
+        if use_cl {
+            Command::cargo_bin("xdbm")?
+                .arg("-c")
+                .arg(config_dir)
+                .args(["sync", "-vvvv", "-u"])
+                .assert()
+                .success();
+        } else {
+            Command::cargo_bin("xdbm")?
+                .arg("-c")
+                .arg(config_dir)
+                .args(["sync", "-vvvv"])
+                .assert()
+                .success();
+        }
         Ok(())
     }
 
@@ -391,8 +400,8 @@ mod integrated_test {
             std::fs::read_to_string(config_dir_1.join("storages.yml"))?.contains("parent: gdrive1")
         );
 
-        run_sync_cmd(&config_dir_1)?;
-        run_sync_cmd(&config_dir_2)?;
+        run_sync_cmd(&config_dir_1, false)?;
+        run_sync_cmd(&config_dir_2, false)?;
 
         // bind
         //
@@ -606,8 +615,8 @@ mod integrated_test {
                     .and(predicate::str::contains("foodoc").not()),
             );
 
-        run_sync_cmd(&config_dir_2)?;
-        run_sync_cmd(&config_dir_1)?;
+        run_sync_cmd(&config_dir_2, true)?;
+        run_sync_cmd(&config_dir_1, true)?;
 
         // bind
         //
@@ -722,8 +731,8 @@ mod integrated_test {
             .assert()
             .success();
 
-        run_sync_cmd(&config_dir_1)?;
-        run_sync_cmd(&config_dir_2)?;
+        run_sync_cmd(&config_dir_1, false)?;
+        run_sync_cmd(&config_dir_2, false)?;
 
         // backup add
         //

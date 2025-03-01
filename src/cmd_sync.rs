@@ -1,6 +1,7 @@
 use std::{
     io::{self, Write},
     path::{Path, PathBuf},
+    process,
 };
 
 use anyhow::{Context, Result, anyhow};
@@ -14,10 +15,56 @@ pub(crate) fn cmd_sync(
     use_cl: bool,
 ) -> Result<()> {
     if use_cl {
-        todo!("do here next")
+        cmd_sync_cl(config_dir, remote_name, ssh_key)
     } else {
         cmd_sync_custom(config_dir, remote_name, use_sshagent, ssh_key)
     }
+}
+
+fn cmd_sync_cl(
+    config_dir: &PathBuf,
+    remote_name: Option<String>,
+    ssh_key: Option<PathBuf>,
+) -> Result<()> {
+    info!("cmd_sync (command line version)");
+
+    trace!("pull");
+    let args = |cmd| {
+        let mut args = vec![cmd];
+        if let Some(ref remote_name) = remote_name {
+            args.push(remote_name.clone());
+        }
+        if let Some(ref ssh_key) = ssh_key {
+            args.push("-i".to_string());
+            args.push(ssh_key.to_str().unwrap().to_owned());
+        }
+        args
+    };
+    let git_pull_result = process::Command::new("git")
+        .args(args("pull".to_owned()))
+        .current_dir(config_dir)
+        .status()
+        .context("error while executing git pull")?
+        .success();
+    if git_pull_result {
+        eprintln!("git pull completed");
+    } else {
+        return Err(anyhow!("failed to complete git pull"));
+    }
+
+    trace!("push");
+    let git_push_result = process::Command::new("git")
+        .args(args("push".to_owned()))
+        .current_dir(config_dir)
+        .status()
+        .context("error while executing git push")?
+        .success();
+    if git_push_result {
+        eprintln!("git push completed");
+    } else {
+        return Err(anyhow!("failed to complete git push"));
+    }
+    Ok(())
 }
 
 fn cmd_sync_custom(
