@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2025-03-01
 
 ### Added
 - `sync` subcommand, which performs git pull (fast-forward) and push (#21)
@@ -49,7 +49,7 @@
 - `backup done` subcommand
 - `completion` subcommand
 
-[Unreleased]: https://github.com/qwjyh/xdbm/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/qwjyh/xdbm/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/qwjyh/xdbm/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/qwjyh/xdbm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/qwjyh/xdbm/releases/tag/v0.2.0
