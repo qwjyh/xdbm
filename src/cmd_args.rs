@@ -1,7 +1,7 @@
 //! CLI arguments
 
-use crate::path;
 use crate::PathBuf;
+use crate::path;
 use clap::Args;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;

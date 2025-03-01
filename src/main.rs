@@ -23,7 +23,7 @@ use std::path::{self, PathBuf};
 use storages::Storages;
 
 use crate::cmd_args::{BackupSubCommands, Cli, Commands, StorageCommands};
-use devices::{Device, DEVICESFILE, *};
+use devices::{DEVICESFILE, Device};
 
 mod backups;
 mod cmd_args;

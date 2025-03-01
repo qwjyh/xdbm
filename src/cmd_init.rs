@@ -2,11 +2,13 @@
 //! Initialize xdbm for the device.
 
 use crate::backups::Backups;
-use crate::storages::{Storages, STORAGESFILE};
+use crate::storages::{STORAGESFILE, Storages};
 use crate::{
-    add_and_commit, backups, full_status, get_devices, write_devices, Device, DEVICESFILE,
+    DEVICESFILE, Device, add_and_commit, backups,
+    devices::{get_devices, write_devices},
+    full_status,
 };
-use anyhow::{anyhow, Context, Ok, Result};
+use anyhow::{Context, Ok, Result, anyhow};
 use core::panic;
 use git2::{Cred, RemoteCallbacks, Repository};
 use inquire::Password;
