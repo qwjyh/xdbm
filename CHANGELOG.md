@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.0] - 2025-02-27
+## [0.4.0] - 2025-03-01
 
 ### Added
 - `sync` subcommand, which performs git pull (fast-forward) and push (#21)
