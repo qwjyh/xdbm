@@ -142,13 +142,13 @@ where
         })
         .transfer_progress(|progress| {
             if progress.received_objects() == progress.total_objects() {
-                print!(
+                eprint!(
                     "Resolving deltas {}/{}\r",
                     progress.indexed_deltas(),
                     progress.total_deltas()
                 );
             } else {
-                print!(
+                eprint!(
                     "Received {}/{} objects ({}) in {} bytes\r",
                     progress.received_objects(),
                     progress.total_objects(),
@@ -156,7 +156,7 @@ where
                     progress.received_bytes(),
                 );
             }
-            io::stdout().flush().unwrap();
+            io::stderr().flush().unwrap();
             true
         })
         .sideband_progress(|text| {
@@ -210,7 +210,7 @@ fn pull(
         .context("Failed to fetch (pull)")?;
     let stats = remote.stats();
     if stats.local_objects() > 0 {
-        println!(
+        eprintln!(
             "\rReceived {}/{} objects in {} bytes (used {} local objects)",
             stats.indexed_objects(),
             stats.total_objects(),
@@ -218,7 +218,7 @@ fn pull(
             stats.local_objects(),
         );
     } else {
-        println!(
+        eprintln!(
             "\rReceived {}/{} objects in {} bytes",
             stats.indexed_objects(),
             stats.total_objects(),
@@ -259,7 +259,7 @@ fn pull(
                 None => String::from_utf8_lossy(ref_remote.name_bytes()).to_string(),
             };
             let msg = format!("Fast-Forward: Setting {} to id: {}", name, fetch_head.id());
-            println!("{}", msg);
+            eprintln!("{}", msg);
             ref_remote
                 .set_target(fetch_head.id(), &msg)
                 .context("failed to set target")?;
