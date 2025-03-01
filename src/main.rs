@@ -50,12 +50,7 @@ fn main() -> Result<()> {
 
     let config_dir: std::path::PathBuf = match cli.config_dir {
         Some(path) => path,
-        None => {
-            let mut config_dir =
-                dirs::config_local_dir().context("Failed to get default config dir.")?;
-            config_dir.push("xdbm");
-            config_dir
-        }
+        None => default_config_dir()?,
     };
     trace!("Config dir: {:?}", config_dir);
 
@@ -136,6 +131,12 @@ fn main() -> Result<()> {
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
+}
+
+fn default_config_dir() -> Result<PathBuf> {
+    let mut config_dir = dirs::config_local_dir().context("Failed to get default config dir.")?;
+    config_dir.push("xdbm");
+    Ok(config_dir)
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {

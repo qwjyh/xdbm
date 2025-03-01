@@ -2,8 +2,11 @@
 
 use crate::PathBuf;
 use crate::path;
+use crate::storages;
 use clap::Args;
 use clap::{Parser, Subcommand};
+use clap_complete::ArgValueCompleter;
+use clap_complete::CompletionCandidate;
 use clap_verbosity_flag::Verbosity;
 
 #[derive(Parser, Debug)]
@@ -181,7 +184,7 @@ pub(crate) enum BackupSubCommands {
     /// Filter by src/dest storage or device.
     List {
         /// Filter by backup source storage name.
-        #[arg(long)]
+        #[arg(long, add = ArgValueCompleter::new(storage_name_completer))]
         src: Option<String>,
         /// Filter by backup destination storage name.
         #[arg(long)]
@@ -213,4 +216,31 @@ pub(crate) enum BackupAddCommands {
         #[arg(default_value = "")]
         note: String,
     },
+}
+
+fn storage_name_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let Some(current) = current.to_str() else {
+        return completions;
+    };
+    let config_dir = match crate::default_config_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("failed to get config dir: {e}");
+            return completions;
+        }
+    };
+    let storages = match storages::Storages::read(&config_dir) {
+        Ok(storages) => storages,
+        Err(e) => {
+            eprintln!("{e}");
+            return completions;
+        }
+    };
+
+    completions.extend(storages.list.iter().filter_map(|(name, storage)| {
+        name.starts_with(current)
+            .then_some(CompletionCandidate::new(name))
+    }));
+    completions
 }
