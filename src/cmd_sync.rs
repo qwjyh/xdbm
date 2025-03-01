@@ -299,7 +299,7 @@ fn push(
     ssh_key: Option<&PathBuf>,
 ) -> Result<()> {
     debug!("push");
-    let callbacks = remote_callback(&use_sshagent, ssh_key);
+    let callbacks = remote_callback(use_sshagent, ssh_key);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
     let num_push_refspecs = remote
