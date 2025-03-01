@@ -12,12 +12,12 @@ pub(crate) fn cmd_sync(
     remote_name: Option<String>,
     use_sshagent: bool,
     ssh_key: Option<PathBuf>,
-    use_cl: bool,
+    use_libgit2: bool,
 ) -> Result<()> {
-    if use_cl {
-        cmd_sync_cl(config_dir, remote_name, ssh_key)
-    } else {
+    if use_libgit2 {
         cmd_sync_custom(config_dir, remote_name, use_sshagent, ssh_key)
+    } else {
+        cmd_sync_cl(config_dir, remote_name, ssh_key)
     }
 }
 

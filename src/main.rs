@@ -94,10 +94,10 @@ fn main() -> Result<()> {
         }
         Commands::Sync {
             remote_name,
+            use_libgit2,
             use_sshagent,
             ssh_key,
-            use_cl,
-        } => cmd_sync::cmd_sync(&config_dir, remote_name, use_sshagent, ssh_key, use_cl)?,
+        } => cmd_sync::cmd_sync(&config_dir, remote_name, use_sshagent, ssh_key, use_libgit2)?,
         Commands::Status {
             path,
             storage,

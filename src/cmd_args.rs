@@ -63,15 +63,15 @@ pub(crate) enum Commands {
     Sync {
         /// Remote name to sync.
         remote_name: Option<String>,
+        /// Use custom git implementation.
+        #[arg(short, long)]
+        use_libgit2: bool,
         /// Whether to use ssh-agent
         #[arg(long)]
         use_sshagent: bool,
         /// Manually specify ssh key
         #[arg(long)]
         ssh_key: Option<PathBuf>,
-        /// Use git command.
-        #[arg(short, long)]
-        use_cl: bool,
     },
 
     /// Check config files validity.

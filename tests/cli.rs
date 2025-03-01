@@ -78,14 +78,14 @@ mod integrated_test {
             Command::cargo_bin("xdbm")?
                 .arg("-c")
                 .arg(config_dir)
-                .args(["sync", "-vvvv", "-u"])
+                .args(["sync", "-vvvv"])
                 .assert()
                 .success();
         } else {
             Command::cargo_bin("xdbm")?
                 .arg("-c")
                 .arg(config_dir)
-                .args(["sync", "-vvvv"])
+                .args(["sync", "-vvvv", "-u"])
                 .assert()
                 .success();
         }
@@ -338,6 +338,7 @@ mod integrated_test {
             .arg(config_dir_2.path())
             .arg("sync")
             .arg("-vvvv")
+            .arg("-u")
             .assert()
             .success()
             .stderr(predicate::str::contains("successfully pushed"));
