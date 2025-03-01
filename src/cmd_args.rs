@@ -69,6 +69,9 @@ pub(crate) enum Commands {
         /// Manually specify ssh key
         #[arg(long)]
         ssh_key: Option<PathBuf>,
+        /// Use git command.
+        #[arg(short, long)]
+        use_cl: bool,
     },
 
     /// Check config files validity.

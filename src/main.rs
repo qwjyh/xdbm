@@ -96,7 +96,8 @@ fn main() -> Result<()> {
             remote_name,
             use_sshagent,
             ssh_key,
-        } => cmd_sync::cmd_sync(&config_dir, remote_name, use_sshagent, ssh_key)?,
+            use_cl,
+        } => cmd_sync::cmd_sync(&config_dir, remote_name, use_sshagent, ssh_key, use_cl)?,
         Commands::Status {
             path,
             storage,

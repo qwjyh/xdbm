@@ -3,10 +3,24 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result};
-use git2::{build::CheckoutBuilder, Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository};
+use anyhow::{Context, Result, anyhow};
+use git2::{Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository, build::CheckoutBuilder};
 
 pub(crate) fn cmd_sync(
+    config_dir: &PathBuf,
+    remote_name: Option<String>,
+    use_sshagent: bool,
+    ssh_key: Option<PathBuf>,
+    use_cl: bool,
+) -> Result<()> {
+    if use_cl {
+        todo!("do here next")
+    } else {
+        cmd_sync_custom(config_dir, remote_name, use_sshagent, ssh_key)
+    }
+}
+
+fn cmd_sync_custom(
     config_dir: &PathBuf,
     remote_name: Option<String>,
     use_sshagent: bool,
