@@ -1,7 +1,7 @@
 //! CLI arguments
 
-use crate::path;
 use crate::PathBuf;
+use crate::path;
 use clap::Args;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::Verbosity;
@@ -63,6 +63,9 @@ pub(crate) enum Commands {
     Sync {
         /// Remote name to sync.
         remote_name: Option<String>,
+        /// Use custom git implementation.
+        #[arg(short, long)]
+        use_libgit2: bool,
         /// Whether to use ssh-agent
         #[arg(long)]
         use_sshagent: bool,

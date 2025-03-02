@@ -1,12 +1,73 @@
 use std::{
     io::{self, Write},
     path::{Path, PathBuf},
+    process,
 };
 
-use anyhow::{anyhow, Context, Result};
-use git2::{build::CheckoutBuilder, Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository};
+use anyhow::{Context, Result, anyhow};
+use git2::{Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository, build::CheckoutBuilder};
 
 pub(crate) fn cmd_sync(
+    config_dir: &PathBuf,
+    remote_name: Option<String>,
+    use_sshagent: bool,
+    ssh_key: Option<PathBuf>,
+    use_libgit2: bool,
+) -> Result<()> {
+    if use_libgit2 {
+        cmd_sync_custom(config_dir, remote_name, use_sshagent, ssh_key)
+    } else {
+        cmd_sync_cl(config_dir, remote_name, ssh_key)
+    }
+}
+
+fn cmd_sync_cl(
+    config_dir: &PathBuf,
+    remote_name: Option<String>,
+    ssh_key: Option<PathBuf>,
+) -> Result<()> {
+    info!("cmd_sync (command line version)");
+
+    trace!("pull");
+    let args = |cmd| {
+        let mut args = vec![cmd];
+        if let Some(ref remote_name) = remote_name {
+            args.push(remote_name.clone());
+        }
+        if let Some(ref ssh_key) = ssh_key {
+            args.push("-i".to_string());
+            args.push(ssh_key.to_str().unwrap().to_owned());
+        }
+        args
+    };
+    let git_pull_result = process::Command::new("git")
+        .args(args("pull".to_owned()))
+        .current_dir(config_dir)
+        .status()
+        .context("error while executing git pull")?
+        .success();
+    if git_pull_result {
+        eprintln!("git pull completed");
+    } else {
+        return Err(anyhow!("failed to complete git pull"));
+    }
+
+    trace!("push");
+    let git_push_result = process::Command::new("git")
+        .args(args("push".to_owned()))
+        .current_dir(config_dir)
+        .status()
+        .context("error while executing git push")?
+        .success();
+    if git_push_result {
+        eprintln!("git push completed");
+    } else {
+        return Err(anyhow!("failed to complete git push"));
+    }
+    Ok(())
+}
+
+fn cmd_sync_custom(
     config_dir: &PathBuf,
     remote_name: Option<String>,
     use_sshagent: bool,
@@ -81,13 +142,13 @@ where
         })
         .transfer_progress(|progress| {
             if progress.received_objects() == progress.total_objects() {
-                print!(
+                eprint!(
                     "Resolving deltas {}/{}\r",
                     progress.indexed_deltas(),
                     progress.total_deltas()
                 );
             } else {
-                print!(
+                eprint!(
                     "Received {}/{} objects ({}) in {} bytes\r",
                     progress.received_objects(),
                     progress.total_objects(),
@@ -95,7 +156,7 @@ where
                     progress.received_bytes(),
                 );
             }
-            io::stdout().flush().unwrap();
+            io::stderr().flush().unwrap();
             true
         })
         .sideband_progress(|text| {
@@ -149,7 +210,7 @@ fn pull(
         .context("Failed to fetch (pull)")?;
     let stats = remote.stats();
     if stats.local_objects() > 0 {
-        println!(
+        eprintln!(
             "\rReceived {}/{} objects in {} bytes (used {} local objects)",
             stats.indexed_objects(),
             stats.total_objects(),
@@ -157,7 +218,7 @@ fn pull(
             stats.local_objects(),
         );
     } else {
-        println!(
+        eprintln!(
             "\rReceived {}/{} objects in {} bytes",
             stats.indexed_objects(),
             stats.total_objects(),
@@ -198,7 +259,7 @@ fn pull(
                 None => String::from_utf8_lossy(ref_remote.name_bytes()).to_string(),
             };
             let msg = format!("Fast-Forward: Setting {} to id: {}", name, fetch_head.id());
-            println!("{}", msg);
+            eprintln!("{}", msg);
             ref_remote
                 .set_target(fetch_head.id(), &msg)
                 .context("failed to set target")?;
@@ -238,7 +299,7 @@ fn push(
     ssh_key: Option<&PathBuf>,
 ) -> Result<()> {
     debug!("push");
-    let callbacks = remote_callback(&use_sshagent, ssh_key);
+    let callbacks = remote_callback(use_sshagent, ssh_key);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
     let num_push_refspecs = remote

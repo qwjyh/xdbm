@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Option to use `git` cli in `sync` subcommand. This is now the default (#27)
+
 ## [0.4.0] - 2025-03-01
 
 ### Added
