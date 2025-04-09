@@ -142,14 +142,14 @@ where
         })
         .transfer_progress(|progress| {
             if progress.received_objects() == progress.total_objects() {
-                eprint!(
-                    "Resolving deltas {}/{}\r",
+                print!(
+                    "\rResolving deltas {}/{}",
                     progress.indexed_deltas(),
                     progress.total_deltas()
                 );
             } else {
-                eprint!(
-                    "Received {}/{} objects ({}) in {} bytes\r",
+                print!(
+                    "\rReceived {}/{} objects ({}) in {} bytes",
                     progress.received_objects(),
                     progress.total_objects(),
                     progress.indexed_objects(),
