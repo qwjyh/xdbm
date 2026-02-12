@@ -16,7 +16,8 @@ extern crate log;
 extern crate dirs;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::CompleteEnv;
 use git2::{Commit, Oid, Repository};
 use std::path::Path;
 use std::path::{self, PathBuf};
@@ -41,6 +42,8 @@ mod storages;
 mod util;
 
 fn main() -> Result<()> {
+    CompleteEnv::with_factory(Cli::command).complete();
+
     let cli = Cli::parse();
     env_logger::Builder::new()
         .filter_level(cli.verbose.log_level_filter())
@@ -50,12 +53,7 @@ fn main() -> Result<()> {
 
     let config_dir: std::path::PathBuf = match cli.config_dir {
         Some(path) => path,
-        None => {
-            let mut config_dir =
-                dirs::config_local_dir().context("Failed to get default config dir.")?;
-            config_dir.push("xdbm");
-            config_dir
-        }
+        None => default_config_dir()?,
     };
     trace!("Config dir: {:?}", config_dir);
 
@@ -136,6 +134,12 @@ fn main() -> Result<()> {
     }
     full_status(&Repository::open(&config_dir)?)?;
     Ok(())
+}
+
+fn default_config_dir() -> Result<PathBuf> {
+    let mut config_dir = dirs::config_local_dir().context("Failed to get default config dir.")?;
+    config_dir.push("xdbm");
+    Ok(config_dir)
 }
 
 fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {

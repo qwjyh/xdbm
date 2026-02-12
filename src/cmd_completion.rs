@@ -6,6 +6,7 @@ use clap::CommandFactory;
 use clap_complete::Shell;
 
 pub(crate) fn cmd_completion(shell: Shell) -> Result<()> {
+    info!("this command is deprecated. use dynamic completion");
     let mut cmd = Cli::command();
     clap_complete::generate(shell, &mut cmd, "xdbm", &mut io::stdout());
     Ok(())
