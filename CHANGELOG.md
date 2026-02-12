@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-12
+
 ### Added
 - Option to use `git` cli in `sync` subcommand. This is now the default (#27)
-- Dynamic completion support.
+- Dynamic completion support. (#28)
 
 ## [0.4.0] - 2025-03-01
 
@@ -55,7 +57,8 @@
 - `backup done` subcommand
 - `completion` subcommand
 
-[Unreleased]: https://github.com/qwjyh/xdbm/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/qwjyh/xdbm/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/qwjyh/xdbm/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/qwjyh/xdbm/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/qwjyh/xdbm/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/qwjyh/xdbm/compare/v0.2.0...v0.2.1
