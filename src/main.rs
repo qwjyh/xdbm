@@ -142,7 +142,7 @@ fn default_config_dir() -> Result<PathBuf> {
     Ok(config_dir)
 }
 
-fn find_last_commit(repo: &Repository) -> Result<Option<Commit>, git2::Error> {
+fn find_last_commit(repo: &'_ Repository) -> Result<Option<Commit<'_>>, git2::Error> {
     if repo.is_empty()? {
         Ok(None)
     } else {
