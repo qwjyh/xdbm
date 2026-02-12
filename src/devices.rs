@@ -1,6 +1,6 @@
 //! Manipulates each client device.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, BufWriter};
@@ -45,6 +45,11 @@ impl Device {
     /// Get name.
     pub fn name(&self) -> String {
         self.name.to_string()
+    }
+
+    /// Get formatted string containing hostname and os.
+    pub fn other_info(&self) -> String {
+        format!("{}: ({})", self.hostname, self.os_name)
     }
 }
 

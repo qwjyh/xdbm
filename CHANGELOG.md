@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Add auxiliary info to dynamic completion.
+
 ## [0.5.0] - 2026-02-12
 
 ### Added
