@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Dynamic completion support.
 
 ### Added
 - Option to use `git` cli in `sync` subcommand. This is now the default (#27)
