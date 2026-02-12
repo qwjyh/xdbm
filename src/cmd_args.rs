@@ -1,11 +1,13 @@
 //! CLI arguments
 
 use crate::PathBuf;
+use crate::backups;
+use crate::devices;
 use crate::path;
 use crate::storages;
 use clap::Args;
 use clap::{Parser, Subcommand};
-use clap_complete::ArgValueCompleter;
+use clap_complete::ArgValueCandidates;
 use clap_complete::CompletionCandidate;
 use clap_verbosity_flag::Verbosity;
 
@@ -80,7 +82,10 @@ pub(crate) enum Commands {
     /// Check config files validity.
     Check {},
 
-    /// Generate completion script.
+    /// [DEPRECATED] Generate completion script.
+    ///
+    /// Use xdbm native completion instead;
+    /// Source `COMPLETE=<SHELL> xdbm`.
     Completion { shell: clap_complete::Shell },
 }
 
@@ -105,6 +110,7 @@ pub(crate) enum StorageCommands {
     /// For physical disk, the name is taken from system info automatically.
     Bind {
         /// Name of the storage.
+        #[arg(add = ArgValueCandidates::new(storage_name_completer))]
         storage: String,
         /// Device specific alias for the storage.
         #[arg(short, long)]
@@ -184,13 +190,13 @@ pub(crate) enum BackupSubCommands {
     /// Filter by src/dest storage or device.
     List {
         /// Filter by backup source storage name.
-        #[arg(long, add = ArgValueCompleter::new(storage_name_completer))]
+        #[arg(long, add = ArgValueCandidates::new(storage_name_completer))]
         src: Option<String>,
         /// Filter by backup destination storage name.
-        #[arg(long)]
+        #[arg(long, add = ArgValueCandidates::new(storage_name_completer))]
         dest: Option<String>,
         /// Filter by device where the backup is configured.
-        #[arg(long)]
+        #[arg(long, add = ArgValueCandidates::new(device_name_completer))]
         device: Option<String>,
         /// Long display with more information.
         #[arg(short, long)]
@@ -199,6 +205,7 @@ pub(crate) enum BackupSubCommands {
     /// Record xdbm that the backup with the name has finished right now.
     Done {
         /// Name of the backup config.
+        #[arg(add = ArgValueCandidates::new(backup_name_completer_local))]
         name: String,
         /// Result of the backup
         exit_status: u64,
@@ -218,11 +225,9 @@ pub(crate) enum BackupAddCommands {
     },
 }
 
-fn storage_name_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+fn storage_name_completer() -> Vec<CompletionCandidate> {
     let mut completions = vec![];
-    let Some(current) = current.to_str() else {
-        return completions;
-    };
+    // TODO: support custom config dir with env var
     let config_dir = match crate::default_config_dir() {
         Ok(p) => p,
         Err(e) => {
@@ -238,9 +243,52 @@ fn storage_name_completer(current: &std::ffi::OsStr) -> Vec<CompletionCandidate>
         }
     };
 
-    completions.extend(storages.list.iter().filter_map(|(name, storage)| {
-        name.starts_with(current)
-            .then_some(CompletionCandidate::new(name))
-    }));
+    completions.extend(storages.list.keys().map(CompletionCandidate::new));
     completions
+}
+
+fn device_name_completer() -> Vec<CompletionCandidate> {
+    let config_dir = match crate::default_config_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("failed to get config dir: {e}");
+            return vec![];
+        }
+    };
+    let devices = match devices::get_devices(&config_dir) {
+        Ok(devices) => devices,
+        Err(e) => {
+            eprintln!("{e}");
+            return vec![];
+        }
+    };
+    devices
+        .into_iter()
+        .map(|device| CompletionCandidate::new(device.name()))
+        .collect()
+}
+
+fn backup_name_completer_local() -> Vec<CompletionCandidate> {
+    let config_dir = match crate::default_config_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("failed to get config dir: {e}");
+            return vec![];
+        }
+    };
+    let device = match devices::get_device(&config_dir) {
+        Ok(device) => device,
+        Err(e) => {
+            eprintln!("failed to get device: {e}");
+            return vec![];
+        }
+    };
+    let backups = match backups::Backups::read(&config_dir, &device) {
+        Ok(backups) => backups,
+        Err(e) => {
+            eprintln!("{e}");
+            return vec![];
+        }
+    };
+    backups.list.keys().map(CompletionCandidate::new).collect()
 }

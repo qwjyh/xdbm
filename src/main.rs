@@ -16,7 +16,8 @@ extern crate log;
 extern crate dirs;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::CompleteEnv;
 use git2::{Commit, Oid, Repository};
 use std::path::Path;
 use std::path::{self, PathBuf};
@@ -41,6 +42,8 @@ mod storages;
 mod util;
 
 fn main() -> Result<()> {
+    CompleteEnv::with_factory(Cli::command).complete();
+
     let cli = Cli::parse();
     env_logger::Builder::new()
         .filter_level(cli.verbose.log_level_filter())
