@@ -169,7 +169,7 @@ pub(crate) fn cmd_init(
     add_and_commit(
         &repo,
         Path::new(DEVICESFILE),
-        &format!("Add new device: {}", &device.name()),
+        &format!("Add new device: {}", device.name()),
     )?;
 
     // backups/[device].yml
@@ -180,7 +180,7 @@ pub(crate) fn cmd_init(
     add_and_commit(
         &repo,
         &backups::backups_file(&device),
-        &format!("Add new backups for device: {}", &device.name()),
+        &format!("Add new backups for device: {}", device.name()),
     )?;
 
     println!("Device added");

@@ -10,7 +10,7 @@ use crate::{
 };
 
 pub(crate) fn cmd_check(config_dir: &Path) -> Result<()> {
-    info!("Config dir: {}", &config_dir.display());
+    info!("Config dir: {}", config_dir.display());
 
     let device = devices::get_device(config_dir)?;
     info!("Current device: {:?}", device);
@@ -45,13 +45,13 @@ pub(crate) fn cmd_check(config_dir: &Path) -> Result<()> {
             if !(storages.list.contains_key(&backup.source().storage)) {
                 return Err(anyhow!(
                     "The source of backup {} doesn't exist in storages.",
-                    &backup.name()
+                    backup.name()
                 ));
             }
             if !(storages.list.contains_key(&backup.destination().storage)) {
                 return Err(anyhow!(
                     "The destination of backup {} doesn't exist in storages.",
-                    &backup.name()
+                    backup.name()
                 ));
             }
             let parent_storage = util::min_parent_storage(

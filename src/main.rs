@@ -88,7 +88,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Path {} => {
-            println!("{}", &config_dir.display());
+            println!("{}", config_dir.display());
         }
         Commands::Sync {
             remote_name,

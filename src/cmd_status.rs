@@ -141,8 +141,8 @@ fn parent_backups<'a>(
     trace!("Path on the device {:?}", target_path);
     backups
         .list
-        .into_iter()
-        .filter_map(|(_k, backup)| {
+        .into_values()
+        .filter_map(|backup| {
             let backup_path = backup.source().path(storages, device)?;
             trace!("{:?}", backup_path.components());
             let diff = pathdiff::diff_paths(&target_path, backup_path.clone())?;
@@ -167,7 +167,7 @@ mod test {
     use crate::{
         backups::{self, ExternallyInvoked},
         devices,
-        storages::{self, online_storage::OnlineStorage, StorageExt},
+        storages::{self, StorageExt, online_storage::OnlineStorage},
         util,
     };
 
