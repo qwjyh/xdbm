@@ -243,7 +243,9 @@ fn storage_name_completer() -> Vec<CompletionCandidate> {
         }
     };
 
-    completions.extend(storages.list.keys().map(CompletionCandidate::new));
+    completions.extend(storages.list.iter().map(|(name, storage)| {
+        CompletionCandidate::new(name).help(Some(storage.to_string().into()))
+    }));
     completions
 }
 
@@ -264,7 +266,9 @@ fn device_name_completer() -> Vec<CompletionCandidate> {
     };
     devices
         .into_iter()
-        .map(|device| CompletionCandidate::new(device.name()))
+        .map(|device| {
+            CompletionCandidate::new(device.name()).help(Some(device.other_info().into()))
+        })
         .collect()
 }
 
