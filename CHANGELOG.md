@@ -4,6 +4,8 @@
 
 ### Changed
 - Add auxiliary info to dynamic completion.
+- Add storage path and backup source equality check to check command.
+- In check command, if no backup covers target path, print that info.
 
 ## [0.5.0] - 2026-02-12
 
