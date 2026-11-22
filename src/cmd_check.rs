@@ -1,11 +1,12 @@
 use std::path::Path;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 
 use crate::{
     backups::Backups,
     devices,
     storages::{Storage, StorageExt, Storages},
+    util,
 };
 
 pub(crate) fn cmd_check(config_dir: &Path) -> Result<()> {
@@ -52,6 +53,25 @@ pub(crate) fn cmd_check(config_dir: &Path) -> Result<()> {
                     "The destination of backup {} doesn't exist in storages.",
                     &backup.name()
                 ));
+            }
+            let parent_storage = util::min_parent_storage(
+                &backup.source().path(&storages, device).unwrap(),
+                &storages,
+                device,
+            );
+            if let Some((parent_storage, _)) = parent_storage {
+                if *parent_storage.name() != backup.source().storage {
+                    anyhow::bail!(
+                        "Backup's source storage doesn't match the parent storage: backup config = {}, parent storage = {}",
+                        backup.source().storage,
+                        parent_storage
+                    );
+                }
+            } else {
+                anyhow::bail!(
+                    "Backup {} source path is not covered in any storage",
+                    backup.name()
+                );
             }
         }
     }
